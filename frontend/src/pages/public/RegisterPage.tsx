@@ -109,7 +109,7 @@ export function RegisterPage() {
             type="tel"
             inputMode="numeric"
             maxLength={10}
-            placeholder="9876543210"
+            placeholder={translate('common.mobile')}
             value={mobile}
             onChange={(e) => setMobile(e.target.value.replace(/[^\d]/g, ''))}
             error={errors.mobile}
