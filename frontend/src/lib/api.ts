@@ -17,6 +17,7 @@ import type {
   FarmerDashboard,
   Order,
   OrderStatus,
+  OtpSendResponse,
   PredictYieldResponse,
   PriceSummaryItem,
   PriceTrendResponse,
@@ -140,8 +141,12 @@ async function downloadExport(): Promise<void> {
 export const api = {
   register: (payload: { role: Role; name: string; mobile: string; password: string; [k: string]: unknown }) =>
     request<AuthResponse>('/auth/register', { method: 'POST', body: payload, auth: false }),
-  login: (payload: { role: Role; mobile: string; password: string }) =>
+  login: (payload: { role: Role; identifier: string; password: string }) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: payload, auth: false }),
+  sendOtp: (payload: { role: Role; mobile: string }) =>
+    request<OtpSendResponse>('/auth/otp/send', { method: 'POST', body: payload, auth: false }),
+  verifyOtp: (payload: { role: Role; mobile: string; otp: string }) =>
+    request<AuthResponse>('/auth/otp/verify', { method: 'POST', body: payload, auth: false }),
   me: () => request<{ role: Role; user: SafeUser }>('/auth/me'),
 
   getFarmer: (id: number | string) => request<SafeUser>(`/farmers/${id}`, { auth: false }),

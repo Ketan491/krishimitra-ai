@@ -32,6 +32,12 @@ export interface AuthResponse {
   user: SafeUser;
 }
 
+export interface OtpSendResponse {
+  success: boolean;
+  devOtp?: string;
+  expiresInSec?: number;
+}
+
 export interface Product {
   id: number;
   farmerId: number;

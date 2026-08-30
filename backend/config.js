@@ -26,6 +26,14 @@ module.exports = {
     windowMs: int('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
     max: int('LOGIN_RATE_LIMIT_MAX', 20),
   },
+  otpTtlMs: int('OTP_TTL_SEC', 5 * 60) * 1000,
+  otpCooldownMs: int('OTP_COOLDOWN_SEC', 60) * 1000,
+  otpMaxPerWindow: int('OTP_MAX_PER_WINDOW', 5),
+  otpWindowMs: int('OTP_WINDOW_MIN', 15) * 60 * 1000,
+  otpRateLimit: {
+    windowMs: int('OTP_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+    max: int('OTP_RATE_LIMIT_MAX', 15),
+  },
   apiRateLimit: {
     windowMs: int('API_RATE_LIMIT_WINDOW_MS', 60 * 1000),
     max: int('API_RATE_LIMIT_MAX', 300),

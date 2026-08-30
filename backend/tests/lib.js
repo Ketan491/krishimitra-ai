@@ -1,4 +1,7 @@
 process.env.DB_FILE = process.env.DB_FILE || `./data.unit-${process.pid}.json`;
+process.env.OTP_COOLDOWN_SEC = process.env.OTP_COOLDOWN_SEC || '0';
+process.env.ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 const fs = require('fs');
 const path = require('path');

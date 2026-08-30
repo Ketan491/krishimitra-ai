@@ -98,3 +98,47 @@ test('authService.login rejects a wrong password', () => {
 test('authService.login rejects an unknown role', () => {
   assert.throws(() => authService.login({ role: 'superuser', mobile: '9876500004', password: 'x' }), /role/);
 });
+
+test('authService.login accepts an identifier field', () => {
+  authService.register({ role: 'farmer', name: 'Ident Farmer', mobile: '9876500006', password: 'pass1234' });
+  const { role, user } = authService.login({ role: 'farmer', identifier: '9876500006', password: 'pass1234' });
+  assert.strictEqual(role, 'farmer');
+  assert.strictEqual(user.name, 'Ident Farmer');
+
+  const admin = authService.login({ role: 'admin', identifier: 'admin', password: 'admin123' });
+  assert.strictEqual(admin.role, 'admin');
+});
+
+test('authService.sendOtp issues a 6-digit code for existing accounts', () => {
+  authService.register({ role: 'farmer', name: 'Otp Farmer', mobile: '9876500007', password: 'pass1234' });
+  const { success, devOtp, expiresInSec } = authService.sendOtp({ role: 'farmer', mobile: '9876500007' });
+  assert.strictEqual(success, true);
+  assert.match(devOtp, /^\d{6}$/);
+  assert.ok(expiresInSec > 0);
+});
+
+test('authService.sendOtp rejects unknown mobiles and wild roles', () => {
+  authService.register({ role: 'customer', name: 'Otp Customer', mobile: '9876500008', password: 'pass1234' });
+  assert.throws(() => authService.sendOtp({ role: 'farmer', mobile: '9999999999' }), (e) => e.status === 404);
+  assert.throws(() => authService.sendOtp({ role: 'admin', mobile: '9876500008' }), (e) => e.status === 400);
+});
+
+test('authService.verifyOtp completes a login and rejects bad codes', () => {
+  authService.register({ role: 'customer', name: 'Otp Verify', mobile: '9876500009', password: 'pass1234' });
+  const { devOtp } = authService.sendOtp({ role: 'customer', mobile: '9876500009' });
+
+  const { token, role, user } = authService.verifyOtp({ role: 'customer', mobile: '9876500009', otp: devOtp });
+  assert.ok(token);
+  assert.strictEqual(role, 'customer');
+  assert.strictEqual(user.name, 'Otp Verify');
+
+  authService.sendOtp({ role: 'customer', mobile: '9876500009' });
+  assert.throws(() => authService.verifyOtp({ role: 'customer', mobile: '9876500009', otp: '000000' }), (e) => e.status === 401);
+});
+
+test('authService.verifyOtp fails after the code is consumed once', () => {
+  authService.register({ role: 'farmer', name: 'Otp Consume', mobile: '9876500011', password: 'pass1234' });
+  const { devOtp } = authService.sendOtp({ role: 'farmer', mobile: '9876500011' });
+  authService.verifyOtp({ role: 'farmer', mobile: '9876500011', otp: devOtp });
+  assert.throws(() => authService.verifyOtp({ role: 'farmer', mobile: '9876500011', otp: devOtp }), (e) => e.status === 401);
+});

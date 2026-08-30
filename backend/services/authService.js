@@ -2,6 +2,7 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 const { AppError } = require('../middleware/errors');
 const { signToken, comparePassword, safeUser, adminCheck } = require('../middleware/auth');
+const { issueOtp, consumeOtp } = require('./otpService');
 const {
   isValidMobile,
   isValidPassword,
@@ -81,13 +82,22 @@ function register({ role, name, mobile, password, ...extra }) {
   return { token: buildToken({ id: row.id, role }), role, user };
 }
 
-function login({ role, mobile, password }) {
-  if (!mobile || !password) throw new AppError(400, 'Mobile/username and password are required');
+function findByCredential(table, credential) {
+  const trimmed = credential.trim();
+  return db.find(table, (u) => {
+    if (u.mobile === trimmed) return true;
+    return Boolean(u.email) && u.email.toLowerCase() === trimmed.toLowerCase();
+  });
+}
+
+function login({ role, mobile, password, identifier }) {
+  const credential = String(identifier ?? mobile ?? '').trim();
+  if (!credential || !password) throw new AppError(400, 'Mobile/username and password are required');
 
   if (role === 'admin') {
-    if (!adminCheck(mobile, password)) throw new AppError(401, 'Invalid admin credentials');
-    const token = signToken({ id: 1, role: 'admin', username: mobile });
-    return { token, role: 'admin', user: { id: 1, username: mobile } };
+    if (!adminCheck(credential, password)) throw new AppError(401, 'Invalid admin credentials');
+    const token = signToken({ id: 1, role: 'admin', username: credential });
+    return { token, role: 'admin', user: { id: 1, username: credential } };
   }
 
   if (!['farmer', 'customer'].includes(role)) {
@@ -95,11 +105,22 @@ function login({ role, mobile, password }) {
   }
 
   const table = role === 'farmer' ? 'farmers' : 'customers';
-  const user = db.find(table, (u) => u.mobile === mobile.trim());
+  const user = findByCredential(table, credential);
   if (!user || !comparePassword(password, user.passwordHash)) {
-    throw new AppError(401, 'Invalid mobile number or password');
+    throw new AppError(401, 'Invalid mobile/email or password');
   }
 
+  const token = signToken({ id: user.id, role });
+  return { token, role, user: safeUser(user) };
+}
+
+function sendOtp({ role, mobile }) {
+  const { code, expiresInSec } = issueOtp(role, mobile || '');
+  return { success: true, devOtp: code, expiresInSec };
+}
+
+function verifyOtp({ role, mobile, otp }) {
+  const user = consumeOtp(role, mobile || '', otp || '');
   const token = signToken({ id: user.id, role });
   return { token, role, user: safeUser(user) };
 }
@@ -115,4 +136,4 @@ function profileFor(reqUser) {
   return safeUser(user);
 }
 
-module.exports = { register, login, profileFor, buildToken, hashPassword };
+module.exports = { register, login, sendOtp, verifyOtp, profileFor, buildToken, hashPassword };

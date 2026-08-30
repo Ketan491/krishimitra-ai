@@ -9,6 +9,9 @@ if (fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
 
 process.env.LOG_LEVEL = 'silent';
 
+process.env.ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
 const app = require('../app');
 
 let server;
@@ -280,4 +283,63 @@ test('admin can sign in, see summary and approve a product', async () => {
   const customer = await register('customer', { name: 'Sneaky C', mobile: '9131313131' });
   const blocked = await api('GET', '/api/admin/farmers', { token: customer.token });
   assert.strictEqual(blocked.status, 403);
+});
+
+test('OTP flow: send + verify logs a registered user in', async () => {
+  await register('farmer', { name: 'Otp Flow', mobile: '9876543211' });
+
+  const sent = await api('POST', '/api/auth/otp/send', {
+    body: { role: 'farmer', mobile: '9876543211' },
+  });
+  assert.strictEqual(sent.status, 200, JSON.stringify(sent.body));
+  assert.match(sent.body.devOtp, /^\d{6}$/);
+  assert.strictEqual(sent.body.success, true);
+
+  const bad = await api('POST', '/api/auth/otp/verify', {
+    body: { role: 'farmer', mobile: '9876543211', otp: '000000' },
+  });
+  assert.strictEqual(bad.status, 401);
+
+  const ok = await api('POST', '/api/auth/otp/verify', {
+    body: { role: 'farmer', mobile: '9876543211', otp: sent.body.devOtp },
+  });
+  assert.strictEqual(ok.status, 200);
+  assert.strictEqual(ok.body.role, 'farmer');
+  assert.ok(ok.body.token);
+  assert.strictEqual(ok.body.user.name, 'Otp Flow');
+
+  const me = await api('GET', '/api/auth/me', { token: ok.body.token });
+  assert.strictEqual(me.status, 200);
+  assert.strictEqual(me.body.role, 'farmer');
+});
+
+test('OTP send refuses unknown mobiles and admin role', async () => {
+  const unknown = await api('POST', '/api/auth/otp/send', {
+    body: { role: 'farmer', mobile: '9898989898' },
+  });
+  assert.strictEqual(unknown.status, 404);
+
+  const admin = await api('POST', '/api/auth/otp/send', {
+    body: { role: 'admin', mobile: '9876543211' },
+  });
+  assert.strictEqual(admin.status, 400);
+});
+
+test('admin and farmer can sign in through identifier (email-style login)', async () => {
+  const admin = await api('POST', '/api/auth/login', {
+    body: { role: 'admin', identifier: 'admin', password: 'admin123' },
+  });
+  assert.strictEqual(admin.status, 200);
+
+  await register('farmer', { name: 'Ident Flow', mobile: '9876543212' });
+  const farmer = await api('POST', '/api/auth/login', {
+    body: { role: 'farmer', identifier: '9876543212', password: 'test1234' },
+  });
+  assert.strictEqual(farmer.status, 200);
+  assert.strictEqual(farmer.body.user.mobile, '9876543212');
+
+  const wrong = await api('POST', '/api/auth/login', {
+    body: { role: 'farmer', identifier: 'someone@example.com', password: 'test1234' },
+  });
+  assert.strictEqual(wrong.status, 401);
 });
