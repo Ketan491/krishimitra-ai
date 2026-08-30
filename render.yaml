@@ -1,22 +1,24 @@
+# Export: 2026-08-30T06:43:48Z (from Render)
 services:
   - type: web
     name: krishimitra-ai
     runtime: node
+    repo: https://github.com/Ketan491/krishimitra-ai
     plan: free
-    rootDir: backend
-    installCommand: npm ci
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: NODE_VERSION
+        sync: false
+      - key: WEATHER_PROVIDER
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+    region: oregon
     buildCommand: cd ../frontend && npm ci && npm run build
     startCommand: node server.js
     healthCheckPath: /api/health
-    autoDeploy: true
-    envVars:
-      - key: NODE_VERSION
-        value: 22.13.0
-      - key: JWT_SECRET
-        generateValue: true
-      - key: ADMIN_USERNAME
-        value: admin
-      - key: ADMIN_PASSWORD
-        generateValue: true
-      - key: WEATHER_PROVIDER
-        value: mock
+    autoDeployTrigger: commit
+    rootDir: backend
