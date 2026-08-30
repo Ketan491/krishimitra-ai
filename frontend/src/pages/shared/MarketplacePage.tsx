@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -32,13 +32,26 @@ export function MarketplacePage() {
   const [search, setSearch] = useState('');
   const [crop, setCrop] = useState('');
   const [organic, setOrganic] = useState('');
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState(() => {
+    const q = new URLSearchParams(window.location.search).get('sort');
+    return q || 'newest';
+  });
   const [page, setPage] = useState(1);
   const [retryTick, setRetryTick] = useState(0);
   const [data, setData] = useState<ProductListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deals, setDeals] = useState<Product[] | null>(null);
+
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const q = searchParams.get('sort');
+    if (q) {
+      setSort(q);
+      setPage(1);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +122,16 @@ export function MarketplacePage() {
               <span className="text-lg font-bold text-ink-900">🔥 {translate('market.todayDeals')}</span>
               <Badge variant="red">{deals.length}</Badge>
             </div>
-            <Link to="/market?sort=deal" className="text-sm font-medium text-crop-700 hover:underline">
+            <Link
+              to="/market?sort=deal"
+              onClick={() => {
+                setSearch('');
+                setCrop('');
+                setOrganic('');
+                setPage(1);
+              }}
+              className="text-sm font-medium text-crop-700 hover:underline"
+            >
               {translate('market.viewAll')} →
             </Link>
           </div>

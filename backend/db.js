@@ -81,13 +81,38 @@ const DEFAULT_DATA = {
   auditLog: [],
 };
 
+const PRODUCT_PHOTO_MAP = {
+  'Onions.jpg': '/products/onion.jpg',
+  'Grapes.jpg': '/products/grapes.jpg',
+  'Tomatoes.jpg': '/products/tomato.jpg',
+  'Sugarcane_farm,_Bhuinj_02.jpg': '/products/sugarcane.jpg',
+  'Cotton_plant.jpg': '/products/cotton.jpg',
+  'A_field_of_wheat.JPG': '/products/wheat.jpg',
+  'Maize.jpg': '/products/maize.jpg',
+  'Pigeon_peas_in_threshing.jpg': '/products/pigeonpea.jpg',
+  'Peanuts.jpg': '/products/peanut.jpg',
+};
+
+// Old seed rows referenced Wikimedia Commons files that no longer resolve; point them at bundled local images.
+function healProductPhotos(data) {
+  for (const table of ['products', 'orders']) {
+    for (const row of data[table] || []) {
+      if (typeof row.photoUrl !== 'string' || !row.photoUrl.includes('commons.wikimedia.org')) continue;
+      const name = row.photoUrl.split('/').pop().replace(/\?.*$/, '');
+      if (PRODUCT_PHOTO_MAP[name]) row.photoUrl = PRODUCT_PHOTO_MAP[name];
+    }
+  }
+}
+
 function load() {
   if (!fs.existsSync(DB_FILE)) {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
     fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_DATA, null, 2));
   }
   try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    healProductPhotos(data);
+    return data;
   } catch {
     const backup = `${DB_FILE}.corrupt-${Date.now()}`;
     try {

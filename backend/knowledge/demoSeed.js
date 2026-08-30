@@ -1,7 +1,5 @@
 const bcrypt = require('bcryptjs');
 
-const WIKI = 'https://commons.wikimedia.org/wiki/Special:FilePath/';
-
 const daysAgo = (n, hourOffset = 0) => new Date(Date.now() - n * 86400000 + hourOffset * 3600000).toISOString();
 
 const FLOW = ['Pending', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Reviewed'];
@@ -128,7 +126,7 @@ function buildDemoSeed() {
       compareToPrice: 25,
       quantity: 480,
       unit: 'kg',
-      photoUrl: `${WIKI}Onions.jpg?width=500`,
+      photoUrl: '/products/onion.jpg',
       approved: true,
       organic: false,
       harvestDate: daysAgo(2).slice(0, 10),
@@ -144,7 +142,7 @@ function buildDemoSeed() {
       compareToPrice: 78,
       quantity: 180,
       unit: 'kg',
-      photoUrl: `${WIKI}Grapes.jpg?width=500`,
+      photoUrl: '/products/grapes.jpg',
       approved: true,
       organic: true,
       harvestDate: daysAgo(1).slice(0, 10),
@@ -160,7 +158,7 @@ function buildDemoSeed() {
       compareToPrice: 22,
       quantity: 260,
       unit: 'kg',
-      photoUrl: `${WIKI}Tomatoes.jpg?width=500`,
+      photoUrl: '/products/tomato.jpg',
       approved: true,
       organic: false,
       harvestDate: daysAgo(0).slice(0, 10),
@@ -175,7 +173,7 @@ function buildDemoSeed() {
       price: 3.5,
       quantity: 2000,
       unit: 'kg',
-      photoUrl: `${WIKI}Sugarcane_farm,_Bhuinj_02.jpg?width=500`,
+      photoUrl: '/products/sugarcane.jpg',
       approved: true,
       organic: false,
       harvestDate: daysAgo(3).slice(0, 10),
@@ -191,7 +189,7 @@ function buildDemoSeed() {
       compareToPrice: 80,
       quantity: 140,
       unit: 'kg',
-      photoUrl: `${WIKI}Cotton_plant.jpg?width=500`,
+      photoUrl: '/products/cotton.jpg',
       approved: true,
       organic: false,
       harvestDate: daysAgo(6).slice(0, 10),
@@ -207,7 +205,7 @@ function buildDemoSeed() {
       compareToPrice: 30,
       quantity: 350,
       unit: 'kg',
-      photoUrl: `${WIKI}A_field_of_wheat.JPG?width=500`,
+      photoUrl: '/products/wheat.jpg',
       approved: true,
       organic: true,
       harvestDate: daysAgo(5).slice(0, 10),
@@ -223,7 +221,7 @@ function buildDemoSeed() {
       compareToPrice: 26,
       quantity: 300,
       unit: 'kg',
-      photoUrl: `${WIKI}Maize.jpg?width=500`,
+      photoUrl: '/products/maize.jpg',
       approved: true,
       organic: true,
       harvestDate: daysAgo(1).slice(0, 10),
@@ -238,7 +236,7 @@ function buildDemoSeed() {
       price: 7800,
       quantity: 40,
       unit: 'quintal',
-      photoUrl: `${WIKI}Pigeon_peas_in_threshing.jpg?width=500`,
+      photoUrl: '/products/pigeonpea.jpg',
       approved: null,
       organic: true,
       harvestDate: daysAgo(8).slice(0, 10),
@@ -253,7 +251,7 @@ function buildDemoSeed() {
       price: 5600,
       quantity: 25,
       unit: 'quintal',
-      photoUrl: `${WIKI}Peanuts.jpg?width=500`,
+      photoUrl: '/products/peanut.jpg',
       approved: null,
       organic: true,
       harvestDate: daysAgo(4).slice(0, 10),
