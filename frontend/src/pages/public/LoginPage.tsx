@@ -118,11 +118,6 @@ export function LoginPage() {
             {translate('actions.register')}
           </Link>
         </p>
-
-        <div className="mt-5 rounded-xl border border-dashed border-ink-300 bg-ink-50 p-3 text-xs text-ink-500">
-          <p className="font-semibold text-ink-700">{translate('auth.demoTitle')}</p>
-          <p className="mt-1">{translate('auth.demoNote')}</p>
-        </div>
       </Card>
     </div>
   );

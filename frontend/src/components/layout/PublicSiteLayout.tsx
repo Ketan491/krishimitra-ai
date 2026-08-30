@@ -71,7 +71,7 @@ export function PublicSiteLayout() {
         <Outlet />
       </main>
       <footer className="border-t border-ink-200 bg-ink-900 py-10 text-ink-300">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:grid-cols-2">
           <div>
             <p className="mb-2 text-sm font-semibold text-white">KrishiMitra AI</p>
             <p className="text-sm text-ink-400">{translate('site.footerTagline')}</p>
@@ -87,15 +87,6 @@ export function PublicSiteLayout() {
                 </li>
               ))}
             </ul>
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-semibold text-white">{translate('site.footerAccounts')}</p>
-            <ul className="space-y-1.5 text-sm text-ink-400">
-              <li>{translate('roles.farmer')} · farmer123</li>
-              <li>{translate('roles.customer')} · customer123</li>
-              <li>{translate('roles.admin')} · admin / admin123</li>
-            </ul>
-            <p className="mt-3 text-xs text-ink-500">{translate('site.footerDisclaimer')}</p>
           </div>
         </div>
         <div className="mt-8 border-t border-ink-800 pt-5 text-center text-xs text-ink-500">

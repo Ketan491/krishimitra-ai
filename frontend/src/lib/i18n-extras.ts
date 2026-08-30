@@ -288,8 +288,6 @@ export const EXTRA_EN: Record<string, Record<string, string>> = {
     alreadyHave: 'Already have an account?',
     customerHint: 'Buy fresh farm produce',
     customerRoleHint: 'Buy fresh produce',
-    demoNote: 'Farmer: 9876543210 / farmer123 · Customer: 9123456780 / customer123 · Admin: admin / admin123',
-    demoTitle: 'Demo accounts',
     farmerHint: 'Sell produce, manage crops',
     farmerRoleHint: 'Sell & manage your farm',
     iam: 'I am a…',
@@ -708,8 +706,6 @@ export const EXTRA_EN: Record<string, Record<string, string>> = {
   },
   site: {
     copyright: '© {year} KrishiMitra AI · Built for hackathon demo',
-    footerAccounts: 'Accounts',
-    footerDisclaimer: 'Demo application — AI outputs are indicative, not binding advice.',
     footerPlatform: 'Platform',
     footerTagline:
       'Smart farming companion for Indian farmers — crop recommendations, market prices, disease diagnosis, and government schemes, in your language.',
@@ -1016,8 +1012,6 @@ export const EXTRA_HI: Record<string, Record<string, string>> = {
     alreadyHave: 'क्या आपके पास पहले से खाता है?',
     customerHint: 'ताज़ा फ़ार्म उपज खरीदें',
     customerRoleHint: 'ताज़ा उपज खरीदें',
-    demoNote: 'किसान: 9876543210 / farmer123 · ग्राहक: 9123456780 / customer123 · प्रशासक: admin / admin123',
-    demoTitle: 'डेमो खाते',
     farmerHint: 'उपज बेचें, फ़सलें संभालें',
     farmerRoleHint: 'अपना खेत बेचें और संभालें',
     iam: 'मैं हूँ…',
@@ -1435,8 +1429,6 @@ export const EXTRA_HI: Record<string, Record<string, string>> = {
   },
   site: {
     copyright: '© {year} कृषि मित्र AI · हैकाथॉन डेमो के लिए बनाया गया',
-    footerAccounts: 'खाते',
-    footerDisclaimer: 'डेमो ऐप — AI के नतीजे संकेतात्मक हैं, बाध्यकारी सलाह नहीं।',
     footerPlatform: 'प्लेटफ़ॉर्म',
     footerTagline:
       'भारतीय किसानों के लिए स्मार्ट खेती का साथी — फ़सल सलाह, बाज़ार दरें, रोग पहचान और सरकारी योजनाएँ, आपकी भाषा में।',
@@ -1743,8 +1735,6 @@ export const EXTRA_MR: Record<string, Record<string, string>> = {
     alreadyHave: 'आधीपासून खाते आहे?',
     customerHint: 'ताजी शेती उत्पन्ने खरेदी करा',
     customerRoleHint: 'ताजे उत्पन्न खरेदी करा',
-    demoNote: 'शेतकरी: 9876543210 / farmer123 · ग्राहक: 9123456780 / customer123 · प्रशासक: admin / admin123',
-    demoTitle: 'डेमो खाती',
     farmerHint: 'उत्पन्न विका, पिके व्यवस्थापित करा',
     farmerRoleHint: 'तुमचे शेत विका आणि व्यवस्थापित करा',
     iam: 'मी आहे…',
@@ -2162,8 +2152,6 @@ export const EXTRA_MR: Record<string, Record<string, string>> = {
   },
   site: {
     copyright: '© {year} कृषीमित्र AI · हैकाथॉन डेमोसाठी बनवले',
-    footerAccounts: 'खाती',
-    footerDisclaimer: 'डेमो अ‍ॲप — AI चे निकाल सूचक आहेत, बंधनकारक सल्ला नाही.',
     footerPlatform: 'प्लॅटफॉर्म',
     footerTagline:
       'भारतीय शेतकऱ्यांसाठी स्मार्ट शेतीचा सोबती — पीक सल्ला, बाजारभाव, रोग निदान आणि शासकीय योजना, तुमच्या भाषेत.',
