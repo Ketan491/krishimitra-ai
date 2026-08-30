@@ -4,6 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: backend
+    installCommand: npm ci
     buildCommand: cd ../frontend && npm ci && npm run build
     startCommand: node server.js
     healthCheckPath: /api/health
