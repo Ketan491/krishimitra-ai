@@ -13,6 +13,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StaggerGroup, StaggerItem } from '../../components/motion/FadeIn';
+import { cropLocalizedKey } from '../../lib/crops';
 import type { Product, ProductListResponse } from '../../lib/types';
 
 const SORTS = [
@@ -42,6 +43,11 @@ export function MarketplacePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deals, setDeals] = useState<Product[] | null>(null);
+
+  const localizedName = (name: string): string => {
+    const key = cropLocalizedKey(name);
+    return key ? translate(key) : name;
+  };
 
   const [searchParams] = useSearchParams();
 
@@ -153,7 +159,7 @@ export function MarketplacePage() {
                   </Badge>
                 </div>
                 <div className="p-3">
-                  <h3 className="truncate font-semibold text-ink-900">{d.cropName}</h3>
+                  <h3 className="truncate font-semibold text-ink-900">{localizedName(d.cropName)}</h3>
                   <p className="mt-1 flex items-baseline gap-2">
                     <span className="font-bold text-crop-800">{formatINR(d.price)}</span>
                     {d.compareToPrice ? (
@@ -250,7 +256,7 @@ export function MarketplacePage() {
                   </div>
                   <div className="flex flex-1 flex-col gap-1.5 p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-ink-900">{p.cropName}</h3>
+                      <h3 className="font-semibold text-ink-900">{localizedName(p.cropName)}</h3>
                       <p className="shrink-0 text-right">
                         <span className="font-bold text-crop-800">
                           {formatINR(p.price)}
