@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 128" width="760" height="128">
+  <defs>
+    <g id="mark">
+      <g>
+        <rect width="512" height="512" rx="112" fill="#1B5E20" />
+        <circle cx="112" cy="112" r="56" fill="#F9A825" />
+        <rect x="72" y="368" width="368" height="96" fill="#795548" />
+        <rect x="140" y="398" width="232" height="18" rx="9" fill="#A1887F" />
+        <rect x="248" y="150" width="16" height="222" rx="8" fill="#81C784" />
+        <ellipse cx="326" cy="252" rx="118" ry="62" transform="rotate(32 326 252)" fill="#388E3C" />
+        <ellipse cx="186" cy="252" rx="118" ry="62" transform="rotate(-32 186 252)" fill="#4CAF50" />
+        <circle cx="368" cy="268" r="14" fill="#29B6F6" />
+        <circle cx="256" cy="128" r="22" fill="#F9A825" />
+        <circle cx="256" cy="128" r="10" fill="#FFE082" />
+      </g>
+    </g>
+  </defs>
+
+  
+  <use href="#mark" transform="scale(0.25)" />
+
+  
+  <text
+    x="152"
+    y="82"
+    font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif"
+    font-size="66"
+    font-weight="800"
+    letter-spacing="-1.5"
+  >
+    <tspan fill="#0F172A">Krishi</tspan><tspan fill="#388E3C">Mitra</tspan>
+  </text>
+
+  
+  <g transform="translate(520 34)">
+    <rect width="74" height="48" rx="24" fill="#E8F5E9" />
+    <text
+      x="37"
+      y="32"
+      text-anchor="middle"
+      font-family="'Inter', 'Segoe UI', system-ui, sans-serif"
+      font-size="26"
+      font-weight="700"
+      letter-spacing="0.5"
+      fill="#1B5E20"
+    >AI</text>
+  </g>
+  
+  <circle cx="616" cy="58" r="4" fill="#F9A825" />
+</svg>

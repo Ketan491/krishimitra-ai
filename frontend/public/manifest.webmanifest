@@ -1,0 +1,27 @@
+{
+  "name": "KrishiMitra AI",
+  "short_name": "KrishiMitra",
+  "description": "Smart farming companion for Indian farmers — crops, prices, weather, disease diagnosis, and farm-to-table marketplace.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f5f1",
+  "theme_color": "#388e3c",
+  "lang": "en",
+  "categories": ["agriculture", "productivity", "shopping"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

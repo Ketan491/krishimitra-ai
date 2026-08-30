@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="KrishiMitra">
+  
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#1B5E20"/>
+  
+  <circle cx="150" cy="134" r="44" fill="#FFB300"/>
+  <circle cx="150" cy="134" r="26" fill="none" stroke="#FFE082" stroke-width="7" opacity="0.6"/>
+  
+  <path d="M 264 258 C 226 224 190 212 154 200 C 186 246 218 272 262 276 Z" fill="#A5D6A7"/>
+  <path d="M 268 262 C 316 226 356 210 386 192 C 354 250 318 278 276 278 Z" fill="#66BB6A"/>
+  
+  <path d="M 262 406 C 260 348 260 318 262 264" fill="none" stroke="#4CAF50" stroke-width="16" stroke-linecap="round"/>
+  
+  <path d="M 96 424 Q 256 384 416 424" fill="none" stroke="#E8F5E9" stroke-width="8" stroke-linecap="round" opacity="0.85"/>
+  <path d="M 112 452 Q 256 414 400 452" fill="none" stroke="#A1887F" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+  
+  <path d="M 386 200 L 386 152" fill="none" stroke="#81D4FA" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="386" cy="128" r="18" fill="#4FC3F7"/>
+  <circle cx="386" cy="128" r="7" fill="#E1F5FE"/>
+</svg>

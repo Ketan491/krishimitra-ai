@@ -1,0 +1,9 @@
+node_modules/
+data.json
+.env
+frontend/dist/
+backend/uploads/*
+!backend/uploads/.gitkeep
+*.log
+backend/tests/.tmp-trace.json
+frontend/src/lib/i18n-scratch-*.json

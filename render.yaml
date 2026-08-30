@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: krishimitra-ai
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: cd ../frontend && npm ci && npm run build
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: WEATHER_PROVIDER
+        value: mock
