@@ -331,7 +331,7 @@ export function LoginPage() {
                   type="tel"
                   inputMode="numeric"
                   maxLength={10}
-                  placeholder="9876543210"
+                  placeholder={translate('common.mobile')}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value.replace(/[^\d]/g, ''))}
                   error={errors.identifier}
