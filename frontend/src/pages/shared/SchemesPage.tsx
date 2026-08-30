@@ -8,26 +8,22 @@ import { Input } from '../../components/ui/Input';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StaggerGroup, StaggerItem } from '../../components/motion/FadeIn';
+import { SchemeIcon } from '../../components/SchemeIcons';
+import { localizedField } from '../../lib/localize';
 import type { Scheme } from '../../lib/types';
-
-const CATEGORY_ICONS: Record<string, string> = {
-  subsidy: '💵',
-  insurance: '🛡️',
-  irrigation: '💧',
-  equipment: '🚜',
-  crop: '🌾',
-  default: '🏛️',
-};
 
 export function SchemesPage() {
   const { user, role } = useAuth();
-  const { translate } = useI18n();
+  const { translate, lang } = useI18n();
   const [schemes, setSchemes] = useState<Scheme[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const landSize = role === 'farmer' && user?.landSize ? Number(user.landSize) : undefined;
+
+  const schemeName = (s: Scheme) => localizedField(s, 'name', lang) || s.name;
+  const schemeDescription = (s: Scheme) => localizedField(s, 'description', lang) || s.description;
 
   useEffect(() => {
     let cancelled = false;
@@ -51,13 +47,12 @@ export function SchemesPage() {
     if (!schemes) return [];
     const q = search.trim().toLowerCase();
     if (!q) return schemes;
-    return schemes.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        (s.description || '').toLowerCase().includes(q) ||
-        (s.category || '').toLowerCase().includes(q),
-    );
-  }, [schemes, search]);
+    return schemes.filter((s) => {
+      const hay = `${schemeName(s)} ${schemeDescription(s)} ${s.category || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schemes, search, lang]);
 
   if (loading) return <PageLoader label={translate('schemes.loading')} />;
   if (error) return <ErrorState message={error} />;
@@ -99,8 +94,8 @@ export function SchemesPage() {
               <StaggerItem key={s.id}>
                 <Card className="flex h-full flex-col">
                   <div className="flex items-start justify-between">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-harvest-50 text-xl">
-                      {CATEGORY_ICONS[s.category || 'default']}
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-harvest-50 text-harvest-700">
+                      <SchemeIcon icon={s.icon} className="h-6 w-6" />
                     </span>
                     {eligible !== null ? (
                       eligible ? (
@@ -112,8 +107,8 @@ export function SchemesPage() {
                       <Badge variant="blue">{s.category || translate('schemes.scheme')}</Badge>
                     )}
                   </div>
-                  <h3 className="mt-3 font-semibold text-ink-900">{s.name}</h3>
-                  <p className="mt-1.5 flex-1 text-sm text-ink-600">{s.description}</p>
+                  <h3 className="mt-3 font-semibold text-ink-900">{schemeName(s)}</h3>
+                  <p className="mt-1.5 flex-1 text-sm text-ink-600">{schemeDescription(s)}</p>
                   <div className="mt-4 space-y-1.5 border-t border-ink-100 pt-3 text-xs text-ink-500">
                     <p>
                       🌾{' '}

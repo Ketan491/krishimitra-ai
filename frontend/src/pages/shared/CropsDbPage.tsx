@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Pagination } from '../../components/ui/Pagination';
+import { localizedField, localizeTokens, localizeWater, SEASON_TOKEN_KEYS, SOIL_TOKEN_KEYS } from '../../lib/localize';
 import type { CropCatalogResponse, CropRecord } from '../../lib/types';
 
 const SOIL_OPTIONS = ['Alluvial', 'Black', 'Red', 'Laterite', 'Sandy', 'Clay', 'Loamy'];
@@ -31,7 +32,7 @@ const SEASON_LABEL_KEYS: Record<string, string> = {
 };
 
 export function CropsDbPage() {
-  const { translate } = useI18n();
+  const { translate, lang } = useI18n();
   const [search, setSearch] = useState('');
   const [season, setSeason] = useState('');
   const [soilType, setSoilType] = useState('');
@@ -67,6 +68,11 @@ export function CropsDbPage() {
   const items = useMemo(() => data?.items || [], [data]);
   const total = data?.total || 0;
   const paged = items.filter((_, i) => i >= (page - 1) * pageSize && i < page * pageSize);
+
+  const cropName = (c: CropRecord) => localizedField(c, 'nameEn', lang) || c.nameEn;
+  const cropDescription = (c: CropRecord) => localizedField(c, 'description', lang);
+  const cropPrice = (c: CropRecord) => localizedField(c, 'priceRange', lang);
+  const cropYield = (c: CropRecord) => localizedField(c, 'avgYield', lang);
 
   const openDetail = async (id: number) => {
     setDetailLoading(true);
@@ -143,18 +149,24 @@ export function CropsDbPage() {
                 <div className="aspect-[16/9] w-full overflow-hidden bg-crop-50">
                   <ImageWithFallback
                     src={c.imageUrl}
-                    alt={c.nameEn}
+                    alt={cropName(c)}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-ink-900">{c.nameEn}</h3>
+                  <h3 className="font-semibold text-ink-900">{cropName(c)}</h3>
                   <p className="mt-0.5 text-xs italic text-ink-500">{c.scientificName}</p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {c.season ? <Badge variant="amber">{c.season}</Badge> : null}
-                    {c.waterRequirement ? <Badge variant="blue">{c.waterRequirement.replace(/_/g, ' ')}</Badge> : null}
+                    {c.season ? (
+                      <Badge variant="amber">{localizeTokens(c.season, SEASON_TOKEN_KEYS, translate)}</Badge>
+                    ) : null}
+                    {c.waterRequirement ? (
+                      <Badge variant="blue">{localizeWater(c.waterRequirement, translate)}</Badge>
+                    ) : null}
                   </div>
-                  {c.priceRange ? <p className="mt-2 text-sm font-semibold text-crop-800">{c.priceRange}</p> : null}
+                  {cropPrice(c) ? (
+                    <p className="mt-2 text-sm font-semibold text-crop-800">{cropPrice(c)}</p>
+                  ) : null}
                 </div>
               </button>
             ))}
@@ -166,7 +178,7 @@ export function CropsDbPage() {
       <Modal
         open={Boolean(detail) || detailLoading}
         onClose={() => setDetail(null)}
-        title={detail?.nameEn || translate('cropsDb.detailsTitle')}
+        title={detail ? cropName(detail) : translate('cropsDb.detailsTitle')}
         size="lg"
       >
         {detailLoading ? (
@@ -176,21 +188,23 @@ export function CropsDbPage() {
             {detail.imageUrl ? (
               <ImageWithFallback
                 src={detail.imageUrl}
-                alt={detail.nameEn}
+                alt={cropName(detail)}
                 className="h-52 w-full rounded-xl object-cover"
               />
             ) : null}
             <p className="text-sm italic text-ink-500">{detail.scientificName}</p>
-            {detail.description ? <p className="text-sm text-ink-700">{detail.description}</p> : null}
+            {cropDescription(detail) ? (
+              <p className="text-sm text-ink-700">{cropDescription(detail)}</p>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
               {[
-                [translate('cropsDb.soilLabel'), detail.soilType],
-                [translate('cropsDb.seasonLabel'), detail.season],
+                [translate('cropsDb.soilLabel'), localizeTokens(detail.soilType, SOIL_TOKEN_KEYS, translate)],
+                [translate('cropsDb.seasonLabel'), localizeTokens(detail.season, SEASON_TOKEN_KEYS, translate)],
                 [translate('cropsDb.sowingLabel'), detail.sowingMonth],
                 [translate('cropsDb.harvestLabel'), detail.harvestMonth],
-                [translate('cropsDb.waterLabel'), detail.waterRequirement],
-                [translate('cropsDb.avgYieldLabel'), detail.avgYield],
-                [translate('cropsDb.priceRangeLabel'), detail.priceRange],
+                [translate('cropsDb.waterLabel'), localizeWater(detail.waterRequirement, translate)],
+                [translate('cropsDb.avgYieldLabel'), cropYield(detail)],
+                [translate('cropsDb.priceRangeLabel'), cropPrice(detail)],
               ]
                 .filter(([, v]) => v)
                 .map(([k, v]) => (

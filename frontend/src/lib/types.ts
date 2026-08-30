@@ -132,6 +132,7 @@ export interface Crop {
 export interface CropRecord {
   id: number;
   nameEn: string;
+  nameHi?: string;
   nameMr?: string;
   scientificName?: string;
   soilType?: string;
@@ -140,8 +141,14 @@ export interface CropRecord {
   harvestMonth?: string;
   waterRequirement?: string;
   avgYield?: string;
+  avgYieldHi?: string;
+  avgYieldMr?: string;
   priceRange?: string;
+  priceRangeHi?: string;
+  priceRangeMr?: string;
   description?: string;
+  descriptionHi?: string;
+  descriptionMr?: string;
   commonDiseases?: string;
   recommendedFertilizer?: string;
   imageUrl?: string;
@@ -168,13 +175,18 @@ export interface Equipment {
 export interface Scheme {
   id: number;
   name: string;
+  nameHi?: string;
+  nameMr?: string;
   min_land: number;
   max_land: number;
   crop?: string;
   description: string;
+  descriptionHi?: string;
+  descriptionMr?: string;
   category?: string;
   equipmentType?: string;
   irrigationType?: string[] | string;
+  icon?: string;
 }
 
 export interface Recommendation {

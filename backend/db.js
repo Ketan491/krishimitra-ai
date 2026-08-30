@@ -21,58 +21,88 @@ const DEFAULT_DATA = {
     {
       id: 1,
       name: 'PM-KISAN Samman Nidhi',
+      nameHi: 'प्रधानमंत्री किसान सम्मान निधि',
+      nameMr: 'पंतप्रधान किसान सन्मान निधी',
       min_land: 0,
       max_land: 5,
       crop: 'any',
       description: 'Income support of ₹6,000/year to small and marginal farmer families.',
+      descriptionHi: 'छोटे और सीमांत किसान परिवारों को प्रति वर्ष ₹6,000 की आय सहायता।',
+      descriptionMr: 'लहान व अल्पभूधारक शेतकरी कुटुंबांना दरवर्षी ₹6,000 चे उत्पन्न सहाय्य.',
       category: 'Income Support',
+      icon: 'kisan',
     },
     {
       id: 2,
       name: 'Pradhan Mantri Fasal Bima Yojana (PMFBY)',
+      nameHi: 'प्रधानमंत्री फसल बीमा योजना (पीएमएफबीवाई)',
+      nameMr: 'पंतप्रधान पीक विमा योजना (पीएमएफबीवाय)',
       min_land: 0,
       max_land: 1000,
       crop: 'any',
       description: 'Crop insurance scheme covering losses due to natural calamities, pests and diseases.',
+      descriptionHi: 'प्राकृतिक आपदाओं, कीटों और बीमारियों से होने वाले नुकसान को कवर करने वाली फसल बीमा योजना।',
+      descriptionMr: 'नैसर्गिक आपत्ती, कीड व रोगांमुळे होणाऱ्या नुकसानाचे संरक्षण देणारी पीक विमा योजना.',
       category: 'Insurance',
+      icon: 'fasal',
     },
     {
       id: 3,
       name: 'Kisan Credit Card (KCC)',
+      nameHi: 'किसान क्रेडिट कार्ड (केसीसी)',
+      nameMr: 'किसान क्रेडिट कार्ड (केसीसी)',
       min_land: 0,
       max_land: 1000,
       crop: 'any',
       description: 'Short-term credit at subsidised interest rates for crop, equipment and post-harvest needs.',
+      descriptionHi: 'फसल, उपकरण और कटाई-उपरांत आवश्यकताओं के लिए रियायती ब्याज दरों पर अल्पकालिक ऋण।',
+      descriptionMr: 'पीक, अवजारे व काढणीनंतरच्या गरजांसाठी अनुदानित व्याजदराने अल्पमुदतीचे कर्ज.',
       category: 'Credit',
+      icon: 'credit',
     },
     {
       id: 4,
       name: 'Soil Health Card Scheme',
+      nameHi: 'मृदा स्वास्थ्य कार्ड योजना',
+      nameMr: 'माती आरोग्य कार्ड योजना',
       min_land: 0,
       max_land: 1000,
       crop: 'any',
       description: 'Free soil testing every 2 years with fertiliser-use recommendations per field.',
+      descriptionHi: 'हर 2 साल में मुफ्त मिट्टी परीक्षण और प्रत्येक खेत के लिए उर्वरक-उपयोग सिफारिशें।',
+      descriptionMr: 'दर 2 वर्षांनी मोफत माती चाचणी व प्रत्येक शेतासाठी खत-वापर शिफारसी.',
       category: 'Advisory',
+      icon: 'soil',
     },
     {
       id: 5,
       name: 'Sub-Mission on Agricultural Mechanization (SMAM)',
+      nameHi: 'कृषि यंत्रीकरण उप-मिशन (एसएमएएम)',
+      nameMr: 'कृषी यांत्रिकीकरण उप-अभियान (एसएमएएम)',
       min_land: 0.5,
       max_land: 1000,
       crop: 'any',
       description: 'Subsidy (up to 50%) on purchase of tractors, tillers and other farm equipment.',
+      descriptionHi: 'ट्रैक्टर, टिलर और अन्य कृषि उपकरणों की खरीद पर 50% तक सब्सिडी।',
+      descriptionMr: 'ट्रॅक्टर, टिलर व इतर कृषी अवजारांच्या खरेदीवर 50% पर्यंत अनुदान.',
       category: 'Mechanization',
       equipmentType: 'tractor',
+      icon: 'mechanization',
     },
     {
       id: 6,
       name: 'PM-KUSUM (Solar Pumps)',
+      nameHi: 'पीएम-कुसुम (सौर पंप)',
+      nameMr: 'पीएम-कुसुम (सौर पंप)',
       min_land: 0.5,
       max_land: 1000,
       crop: 'any',
       description: 'Subsidy for solar-powered irrigation pumps to cut diesel dependence.',
+      descriptionHi: 'डीजल निर्भरता कम करने के लिए सौर ऊर्जा से चलने वाले सिंचाई पंपों पर सब्सिडी।',
+      descriptionMr: 'डिझेलवरील अवलंबित्व कमी करण्यासाठी सौरऊर्जेवर चालणाऱ्या सिंचन पंपांवर अनुदान.',
       category: 'Energy',
       irrigationType: ['Drip', 'Sprinkler', 'Flood'],
+      icon: 'solar',
     },
   ],
   reviews: DEMO.reviews,
@@ -104,6 +134,31 @@ function healProductPhotos(data) {
   }
 }
 
+// Migrate old Wikimedia crop images and backfill localized crop fields from the seed.
+function healCrops(data) {
+  const byName = new Map(CROP_CATALOG_SEED.map((c) => [c.nameEn, c]));
+  for (const row of data.cropCatalog || []) {
+    const seed = byName.get(row.nameEn);
+    if (!seed) continue;
+    if (typeof row.imageUrl === 'string' && row.imageUrl.includes('commons.wikimedia.org')) row.imageUrl = seed.imageUrl;
+    for (const f of ['nameHi', 'descriptionHi', 'descriptionMr', 'priceRangeHi', 'priceRangeMr', 'avgYieldHi', 'avgYieldMr']) {
+      if (row[f] === undefined || row[f] === '') row[f] = seed[f];
+    }
+  }
+}
+
+// Backfill localized scheme fields + icon from the seed defaults.
+function healSchemes(data) {
+  const byName = new Map(DEFAULT_DATA.schemes.map((s) => [s.name, s]));
+  for (const row of data.schemes || []) {
+    const seed = byName.get(row.name);
+    if (!seed) continue;
+    for (const f of ['nameHi', 'nameMr', 'descriptionHi', 'descriptionMr', 'icon']) {
+      if (row[f] === undefined || row[f] === '') row[f] = seed[f];
+    }
+  }
+}
+
 function load() {
   if (!fs.existsSync(DB_FILE)) {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
@@ -112,6 +167,8 @@ function load() {
   try {
     const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
     healProductPhotos(data);
+    healCrops(data);
+    healSchemes(data);
     return data;
   } catch {
     const backup = `${DB_FILE}.corrupt-${Date.now()}`;
