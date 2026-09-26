@@ -179,6 +179,20 @@ training/prediction code doesn't need to change.
   gateway callback. `idempotencyKey` is scoped per customer and basket to block
   duplicate orders. Stock is only released for orders that were genuinely never
   paid.
+- **Content Security Policy**: helmet's defaults (`script-src 'self'`,
+  `default-src 'self'`) silently break Razorpay — `checkout.js` cannot load and
+  the payment modal cannot be framed. `app.js` widens exactly three directives
+  (`script-src`, `frame-src`, `connect-src`, plus `img-src` for method logos) to
+  the Razorpay hosts. Everything else stays on helmet's strict defaults and no
+  `'unsafe-inline'` is added to `script-src`. `tests/security.test.js` pins both
+  the allowlist and the strictness, so this cannot silently regress.
+- **Checkout script loading** (`src/lib/razorpay.ts`): every failure path clears
+  the cached promise, otherwise one blocked load poisons the whole session. A
+  readiness poll covers an element whose `load` event already fired, a 20s
+  timeout covers a request that never settles, and failures name the blocked
+  host plus the ad-blocker hint instead of a vague connection message. The cart
+  shows a retryable panel for these, and the customer can always fall back to
+  COD.
 
 ## 9. Frontend architecture (v3)
 

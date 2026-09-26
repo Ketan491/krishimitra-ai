@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
-import { loadRazorpayScript, startCheckout } from '../lib/razorpay';
+import { loadRazorpayScript, resetRazorpayScript, startCheckout } from '../lib/razorpay';
 import type { CartLine } from '../lib/cart';
 import type { Order, PaymentConfig, PaymentMethod } from '../lib/types';
 
-export type CheckoutPhase = 'idle' | 'creating' | 'paying' | 'verifying' | 'confirming' | 'done';
+export type CheckoutPhase =
+  | 'idle'
+  | 'creating'
+  | 'loading-script'
+  | 'paying'
+  | 'verifying'
+  | 'confirming'
+  | 'done';
 
 export interface CheckoutLine {
   productId: number;
@@ -113,34 +120,48 @@ export function useCheckout({
           if (!payment.razorpayOrderId || !payment.keyId) {
             throw new Error('bad-gateway-response');
           }
-          return startCheckout({
-            config: { ...config, keyId: payment.keyId },
-            payment: { ...payment, razorpayOrderId: payment.razorpayOrderId },
-            productName: line.productName,
-            customerName,
-            onSuccess: (response) => {
-              setPhase('verifying');
-              api
-                .verifyPayment({
-                  orderId: payment.order.id,
-                  razorpayOrderId: response.razorpay_order_id,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  razorpaySignature: response.razorpay_signature,
-                })
-                .then((verified) => {
-                  setPhase('confirming');
-                  resolve(verified.order);
-                })
-                .catch(reject)
-                .finally(() => setActiveLine(null));
-            },
-            onDismiss: () => {
-              setActiveLine(null);
-              // Release the stock this line was holding.
-              api.cancelPaymentOrder(payment.order.id).catch(() => undefined);
-              resolve(null);
-            },
-          });
+          // Bind the narrowed values: the guard above does not carry into the
+          // nested .then below.
+          const { razorpayOrderId, keyId } = payment;
+          // Report the real reason instead of a generic connection message, and
+          // drop any cached failure so a retry re-injects the script.
+          setPhase('loading-script');
+          return loadRazorpayScript()
+            .catch((err) => {
+              resetRazorpayScript();
+              throw err instanceof Error ? err : new Error(String(err));
+            })
+            .then(() => {
+              setPhase('paying');
+              return startCheckout({
+                config: { ...config, keyId },
+                payment: { ...payment, razorpayOrderId },
+                productName: line.productName,
+                customerName,
+                onSuccess: (response) => {
+                  setPhase('verifying');
+                  api
+                    .verifyPayment({
+                      orderId: payment.order.id,
+                      razorpayOrderId: response.razorpay_order_id,
+                      razorpayPaymentId: response.razorpay_payment_id,
+                      razorpaySignature: response.razorpay_signature,
+                    })
+                    .then((verified) => {
+                      setPhase('confirming');
+                      resolve(verified.order);
+                    })
+                    .catch(reject)
+                    .finally(() => setActiveLine(null));
+                },
+                onDismiss: () => {
+                  setActiveLine(null);
+                  // Release the stock this line was holding.
+                  api.cancelPaymentOrder(payment.order.id).catch(() => undefined);
+                  resolve(null);
+                },
+              });
+            });
         })
         .catch(reject);
     });
@@ -215,11 +236,25 @@ export function useCheckout({
   return { phase, busy, activeLine, result, checkout, reset };
 }
 
-/** Warms the Razorpay script while the customer is still choosing a method. */
+/**
+ * Warms the Razorpay script while the customer is still choosing a method, so
+ * the click on "Pay now" usually finds `window.Razorpay` already present.
+ * Failures are swallowed here on purpose: the real error is raised (and
+ * retryable) at checkout time, with the script cache cleared.
+ */
 export function usePreloadRazorpay(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
-    loadRazorpayScript().catch(() => undefined);
+    let cancelled = false;
+    loadRazorpayScript()
+      .then(() => undefined)
+      .catch(() => {
+        // Do not leave a rejected promise cached for the rest of the session.
+        if (!cancelled) resetRazorpayScript();
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [enabled]);
 }
 

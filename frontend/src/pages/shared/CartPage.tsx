@@ -8,6 +8,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { formatINR } from '../../lib/format';
 import { cartLinesWithCatalog } from '../../lib/cart';
 import { useCheckout, usePreloadRazorpay, type CheckoutLine } from '../../hooks/useCheckout';
+import { isScriptLoadFailure, loadRazorpayScript, resetRazorpayScript } from '../../lib/razorpay';
 import { PaymentMethodSelector } from '../../components/checkout/PaymentMethodSelector';
 import { OrderSuccessPanel } from '../../components/checkout/OrderSuccessPanel';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
@@ -33,6 +34,9 @@ export function CartPage() {
   const [method, setMethod] = useState<PaymentMethod>('razorpay');
   const [placed, setPlaced] = useState<Order[]>([]);
   const [placedMethod, setPlacedMethod] = useState<PaymentMethod | null>(null);
+  // A failed script load is recoverable in place, so it gets a retryable panel
+  // instead of a toast the customer can only read and dismiss.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // "Buy Now" from a product page arrives as ?buyNow=<productId>&qty=<n> and
   // checks out just that line, leaving the rest of the cart alone.
@@ -147,9 +151,18 @@ export function CartPage() {
 
   const onFailure = useCallback(
     (message: string) => {
-      if (message === 'payment-unavailable') errorToast(translate('pay.onlineUnavailable'));
-      else if (message === 'missing-address') errorToast(translate('cart.addDeliveryAddress'));
-      else errorToast(message || translate('cart.placeOrderError'));
+      if (message === 'payment-unavailable') {
+        errorToast(translate('pay.onlineUnavailable'));
+        return;
+      }
+      if (message === 'missing-address') {
+        errorToast(translate('cart.addDeliveryAddress'));
+        return;
+      }
+      // A script that never loaded is worth retrying in place, and the message
+      // now carries the real reason instead of a vague connection hint.
+      if (isScriptLoadFailure(message)) setLoadError(message);
+      errorToast(message || translate('cart.placeOrderError'));
     },
     [errorToast, translate],
   );
@@ -172,7 +185,17 @@ export function CartPage() {
     if (activeLines.length === 0) return;
     if (!resolveAddress()) return;
     if (override) setMethod(override);
+    setLoadError(null);
     await checkout(override);
+  };
+
+  /** Retry after a blocked or failed script load, from scratch. */
+  const retryAfterLoadFailure = async () => {
+    resetRazorpayScript();
+    setLoadError(null);
+    // Warm the script before the customer presses Pay again, so the retry does
+    // not block behind a fresh injection mid-click.
+    await loadRazorpayScript().catch(() => undefined);
   };
 
   const maxQtyFor = (productId: number) => {
@@ -339,6 +362,30 @@ export function CartPage() {
           </div>
 
           <div className="space-y-2">
+            {loadError ? (
+              <div
+                role="alert"
+                className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900"
+              >
+                <p className="flex items-start gap-2 font-semibold">
+                  <span aria-hidden>⚠️</span>
+                  {translate('pay.loadFailedTitle')}
+                </p>
+                <p className="text-xs leading-relaxed text-amber-800">{loadError}</p>
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  <Button size="sm" variant="outline" onClick={retryAfterLoadFailure} disabled={busy}>
+                    {translate('pay.retryLoad')}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setLoadError(null)}>
+                    {translate('common.cancel')}
+                  </Button>
+                </div>
+                <p className="text-xs text-amber-800">
+                  {translate('pay.switchToCodHint')}
+                </p>
+              </div>
+            ) : null}
+
             <Button
               fullWidth
               size="lg"

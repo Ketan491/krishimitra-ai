@@ -23,7 +23,35 @@ const schemeRoutes = require('./routes/schemes');
 const app = express();
 
 app.disable('x-powered-by');
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// Razorpay Checkout cannot work under helmet's default policy: checkout.js is
+// served from checkout.razorpay.com, the payment modal is an iframe on
+// api.razorpay.com, and the script calls api.razorpay.com from the browser.
+// With the defaults (script-src 'self', default-src 'self') the script is
+// blocked outright, the browser fires its error event, and the customer sees
+// "Could not load the payment window" with nothing left to debug. Only these
+// three directives are widened - everything else stays on helmet's strict
+// defaults, and no 'unsafe-inline' is added to script-src.
+const RAZORPAY_SCRIPT_ORIGIN = 'https://checkout.razorpay.com';
+const RAZORPAY_API_ORIGIN = 'https://api.razorpay.com';
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        scriptSrc: ["'self'", RAZORPAY_SCRIPT_ORIGIN],
+        // The modal is a Razorpay-hosted iframe, so frame-src must allow it.
+        frameSrc: ["'self'", RAZORPAY_API_ORIGIN, RAZORPAY_SCRIPT_ORIGIN],
+        // checkout.js talks to the Razorpay API directly from the browser.
+        connectSrc: ["'self'", RAZORPAY_API_ORIGIN],
+        // Payment method logos (UPI, cards, net banking) come from Razorpay.
+        imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],
+      },
+    },
+  }),
+);
 app.use(
   cors({
     origin(origin, cb) {

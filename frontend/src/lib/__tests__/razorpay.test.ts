@@ -87,7 +87,10 @@ describe('loadRazorpayScript', () => {
     const { loadRazorpayScript } = await freshModule();
     const first = loadRazorpayScript();
     document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`)?.dispatchEvent(new Event('error'));
-    await expect(first).rejects.toThrow(/connection/i);
+    // The message must name the blocked host and point at content blockers,
+    // instead of the old vague "check your connection".
+    await expect(first).rejects.toThrow(/checkout\.razorpay\.com/);
+    await expect(first).rejects.toThrow(/ad blocker/i);
 
     // A fresh attempt after the failure gets a new script element.
     const retry = loadRazorpayScript();
@@ -96,6 +99,42 @@ describe('loadRazorpayScript', () => {
     installRazorpay();
     scripts[0]?.dispatchEvent(new Event('load'));
     await expect(retry).resolves.toBeUndefined();
+  });
+
+  it('recovers when the script loaded but the Razorpay global is missing', async () => {
+    const { loadRazorpayScript } = await freshModule();
+    const first = loadRazorpayScript();
+    const script = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
+    // A blocked or partially executed script can fire load without defining
+    // window.Razorpay; that must reject *and* clear the cache, not poison the
+    // session with a cached rejected promise.
+    script?.dispatchEvent(new Event('load'));
+    await expect(first).rejects.toThrow(/global is missing/i);
+
+    const retry = loadRazorpayScript();
+    const scripts = document.querySelectorAll<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
+    expect(scripts).toHaveLength(1);
+    installRazorpay();
+    scripts[0]?.dispatchEvent(new Event('load'));
+    await expect(retry).resolves.toBeUndefined();
+  });
+
+  it('resolves when the global appears without a load event', async () => {
+    // The preload may have injected the element before this module instance
+    // attached listeners, so the load event can already be in the past.
+    const { loadRazorpayScript } = await freshModule();
+    const pending = loadRazorpayScript();
+    const script = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
+    installRazorpay();
+    script?.dispatchEvent(new Event('load'));
+    await expect(pending).resolves.toBeUndefined();
+  });
+
+  it('isScriptLoadFailure only matches recoverable script failures', async () => {
+    const { isScriptLoadFailure } = await freshModule();
+    expect(isScriptLoadFailure(`Could not load the Razorpay checkout script from x`)).toBe(true);
+    expect(isScriptLoadFailure('payment-unavailable')).toBe(false);
+    expect(isScriptLoadFailure('missing-address')).toBe(false);
   });
 });
 
