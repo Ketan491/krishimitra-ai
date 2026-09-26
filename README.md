@@ -1,4 +1,4 @@
-﻿# KrishiMitra AI — Smart Farming Advisory & Direct Market Platform
+# KrishiMitra AI — Smart Farming Advisory & Direct Market Platform
 
 **Final Year BSc IT Project — by Ketan**
 
@@ -85,7 +85,7 @@ credentials, and `PORT`.
 ```bash
 cd backend
 npm test                            # 122 backend tests (node:test)
-node scripts/smoke-checkout.js      # 37 end-to-end checkout API checks
+ node scripts/smoke-checkout.js              # 37 COD-only checkout API checks
 
 cd frontend
 npm test                            # 76 frontend tests (Vitest + Testing Library)
@@ -248,8 +248,8 @@ COD_MAX_AMOUNT=25000
 
 ```bash
 cd backend && npm test                    # 122 tests
-node scripts/smoke-checkout.js            # 37 end-to-end API checks
-cd ../frontend && npx vitest run           # 76 tests
+ node scripts/smoke-checkout.js            # 37 COD-only API checks
+ node scripts/smoke-checkout.js --razorpay # +4: also creates a real test-mode gateway order
 ```
 
 Razorpay test card `4111 1111 1111 1111`, any future expiry, any OTP.

@@ -1,11 +1,13 @@
 ﻿/**
  * End-to-end smoke test for the checkout API against a real running server.
  *
- *   node scripts/smoke-checkout.js [baseUrl]
+ *   node scripts/smoke-checkout.js            # COD-only (no Razorpay keys)
+ *   node scripts/smoke-checkout.js --razorpay # also exercise the online path
  *
- * Uses a throwaway database so it never touches dev data. Razorpay is left
- * unconfigured on purpose: that is the interesting offline case, where COD must
- * still work end to end.
+ * Uses a throwaway database so it never touches dev data. The default run
+ * forces Razorpay off, which is the interesting offline case: COD must still
+ * work end to end. Pass --razorpay to additionally create a real (test-mode)
+ * Razorpay order and assert the gateway fields come back.
  */
 const path = require('node:path');
 const fs = require('node:fs');
@@ -16,10 +18,17 @@ process.env.DB_FILE = tmpDb;
 process.env.JWT_SECRET = 'smoke-secret';
 process.env.ADMIN_USERNAME = 'smokeadmin';
 process.env.ADMIN_PASSWORD = 'smokeadmin123';
-delete process.env.RAZORPAY_KEY_ID;
-delete process.env.RAZORPAY_KEY_SECRET;
 process.env.COD_ENABLED = 'true';
 process.env.COD_MAX_AMOUNT = '500';
+
+// Read .env before overriding, then pin Razorpay on or off. config.js calls
+// dotenv again when it is required, and dotenv does not overwrite a key that
+// already exists - so assigning '' disables the gateway, where `delete` would
+// simply be undone by the re-read.
+require('dotenv').config();
+const USE_RAZORPAY = process.argv.includes('--razorpay');
+process.env.RAZORPAY_KEY_ID = USE_RAZORPAY ? process.env.RAZORPAY_KEY_ID || '' : '';
+process.env.RAZORPAY_KEY_SECRET = USE_RAZORPAY ? process.env.RAZORPAY_KEY_SECRET || '' : '';
 
 const app = require('../app');
 const bcrypt = require('bcryptjs');
@@ -97,10 +106,18 @@ async function main() {
   console.log('payment config');
   const cfg = await call(server, 'GET', '/api/payments/config');
   check('config responds', cfg.status === 200, `status ${cfg.status}`);
-  check('online reported as disabled without keys', cfg.body.enabled === false);
+  if (USE_RAZORPAY) {
+    check('online reported as enabled with keys', cfg.body.enabled === true);
+    check('public key id exposed', typeof cfg.body.keyId === 'string' && cfg.body.keyId.length > 0);
+  } else {
+    check('online reported as disabled without keys', cfg.body.enabled === false, `enabled ${cfg.body.enabled}`);
+  }
   check('COD advertised as enabled', cfg.body.codEnabled === true);
   check('COD cap advertised', cfg.body.codMaxAmount === 500);
-  check('no key secret leaked', !JSON.stringify(cfg.body).includes(process.env.JWT_SECRET));
+  check(
+    'no key secret leaked',
+    !JSON.stringify(cfg.body).includes(process.env.RAZORPAY_KEY_SECRET) || !process.env.RAZORPAY_KEY_SECRET,
+  );
 
   console.log('\nauth is required');
   const anon = await call(server, 'POST', '/api/payments/create-order', {
@@ -191,15 +208,27 @@ async function main() {
   });
   check('unknown payment method is refused', badMethod.status === 400, `status ${badMethod.status}`);
 
-  const online = await call(server, 'POST', '/api/payments/create-order', {
-    token,
-    body: { productId: cheap.id, quantity: 1, address: 'x', paymentMethod: 'razorpay' },
-  });
-  check(
-    'online payment refused when unconfigured',
-    online.status === 503,
-    `status ${online.status}`,
-  );
+  if (USE_RAZORPAY) {
+    const online = await call(server, 'POST', '/api/payments/create-order', {
+      token,
+      body: { productId: cheap.id, quantity: 1, address: 'x', paymentMethod: 'razorpay' },
+    });
+    check('online order created with keys', online.status === 201, `status ${online.status}`);
+    const gatewayId = online.body.razorpayOrderId || online.body.order?.razorpayOrderId;
+    check('gateway order id returned', typeof gatewayId === 'string' && gatewayId.startsWith('order_'), `${gatewayId}`);
+    check('amount recomputed server side', online.body.amount === cheap.price, `${online.body.amount} vs ${cheap.price}`);
+    check('order starts unpaid', online.body.order?.paymentStatus === 'pending', `${online.body.order?.paymentStatus}`);
+  } else {
+    const online = await call(server, 'POST', '/api/payments/create-order', {
+      token,
+      body: { productId: cheap.id, quantity: 1, address: 'x', paymentMethod: 'razorpay' },
+    });
+    check(
+      'online payment refused when unconfigured',
+      online.status === 503,
+      `status ${online.status}`,
+    );
+  }
 
   console.log('\nCOD orders cannot be settled by the gateway');
   const forged = await call(server, 'POST', '/api/payments/verify', {
