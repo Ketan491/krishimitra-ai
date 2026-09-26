@@ -365,24 +365,46 @@ export function CartPage() {
             {loadError ? (
               <div
                 role="alert"
-                className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900"
+                className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4"
               >
-                <p className="flex items-start gap-2 font-semibold">
-                  <span aria-hidden>⚠️</span>
-                  {translate('pay.loadFailedTitle')}
-                </p>
-                <p className="text-xs leading-relaxed text-amber-800">{loadError}</p>
-                <div className="flex flex-wrap gap-2 pt-0.5">
-                  <Button size="sm" variant="outline" onClick={retryAfterLoadFailure} disabled={busy}>
-                    {translate('pay.retryLoad')}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setLoadError(null)}>
-                    {translate('common.cancel')}
-                  </Button>
+                <div className="flex items-start gap-3">
+                  <span
+                    aria-hidden
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-lg text-red-600"
+                  >
+                    🛡️
+                  </span>
+                  <div className="min-w-0 space-y-2">
+                    <p className="text-sm font-semibold text-red-800">
+                      {translate('pay.loadFailedTitle')}
+                    </p>
+                    {/* The raw reason stays available on hover for support, but
+                        is not what the customer has to read. */}
+                    <p className="text-sm leading-relaxed text-red-700" title={loadError}>
+                      {translate('pay.loadFailedBody')}
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={retryAfterLoadFailure}
+                        disabled={busy}
+                        className="rounded-lg border border-red-300 bg-white px-4 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        {translate('pay.retryLoad')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLoadError(null)}
+                        className="rounded-lg px-4 py-2 text-xs font-medium text-red-700 hover:bg-red-100"
+                      >
+                        {translate('common.cancel')}
+                      </button>
+                    </div>
+                    <p className="text-xs leading-relaxed text-red-600">
+                      {translate('pay.switchToCodHint')}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-amber-800">
-                  {translate('pay.switchToCodHint')}
-                </p>
               </div>
             ) : null}
 

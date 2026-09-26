@@ -41,6 +41,28 @@ describe('checkout confirm labels', () => {
     expect(dictValue(lang, 'farmer.collectCashOnDelivery')).toBeTruthy();
   });
 
+  // The blocked-script card is read by farmers on shared phones with aggressive
+  // content blockers, so the guidance has to be actionable and in every
+  // language - not a technical error string.
+  it.each(LANGS)('explains a blocked payment window in plain language (%s)', (lang) => {
+    const title = dictValue(lang, 'pay.loadFailedTitle');
+    const body = dictValue(lang, 'pay.loadFailedBody');
+
+    expect(title).toBeTruthy();
+    expect(body).toBeTruthy();
+    // Must point at the fix, not just report a failure.
+    expect(body).toMatch(/ad-?blocker|एड-ब्लॉकर|अ‍ॅड-ब्लॉकर/i);
+    expect(body).toContain('checkout.razorpay.com');
+    // The domain is named, but no raw stack/CSP text leaks into the UI.
+    expect(body).not.toMatch(/Content-Security-Policy|script-src|HTTP \d/);
+  });
+
+  it.each(LANGS)('offers a retry and a way out of a blocked payment (%s)', (lang) => {
+    expect(dictValue(lang, 'pay.retryLoad')).toBeTruthy();
+    expect(dictValue(lang, 'common.cancel')).toBeTruthy();
+    expect(dictValue(lang, 'pay.switchToCodHint')).toMatch(/cash on delivery|कैश ऑन डिलीवरी|रोख/i);
+  });
+
   it.each(LANGS)('exposes a payment method name for the admin orders column (%s)', (lang) => {
     expect(dictValue(lang, 'pay.method')).toBeTruthy();
     expect(dictValue(lang, 'pay.statusPaid')).toBeTruthy();
