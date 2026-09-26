@@ -16,6 +16,15 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      # Razorpay. sync: false keeps the values out of this repo - set them in
+      # the Render dashboard. Without them the API reports online payment as
+      # disabled and checkout falls back to Cash on Delivery.
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_CURRENCY
+        sync: false
     region: oregon
     buildCommand: cd ../frontend && npm ci && npm run build
     startCommand: node server.js
