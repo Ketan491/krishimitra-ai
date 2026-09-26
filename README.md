@@ -1,4 +1,4 @@
-# KrishiMitra AI — Smart Farming Advisory & Direct Market Platform
+﻿# KrishiMitra AI — Smart Farming Advisory & Direct Market Platform
 
 **Final Year BSc IT Project — by Ketan**
 
@@ -30,7 +30,7 @@ KrishiMitraAI/
 │   ├── routes/                     auth, farmers, customers, products, orders,
 │   │                               payments, advisory, admin, crops, schemes,
 │   │                               equipment
-│   ├── tests/                      122 automated tests (node:test)
+│   └── tests/                      131 automated tests (node:test)
 │   └── uploads/                    Uploaded photos land here
 ├── frontend/                       React 19 + TypeScript + Tailwind v4 SPA
 │   ├── src/
@@ -84,11 +84,11 @@ credentials, and `PORT`.
 
 ```bash
 cd backend
-npm test                            # 122 backend tests (node:test)
+ npm test                            # 131 backend tests (node:test)
  node scripts/smoke-checkout.js              # 37 COD-only checkout API checks
 
 cd frontend
-npm test                            # 76 frontend tests (Vitest + Testing Library)
+ npm test                            # 94 frontend tests (Vitest + Testing Library)
 ```
 
 Backend tests cover validators, the crop recommender, the ML yield model,
