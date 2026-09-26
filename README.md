@@ -1,4 +1,4 @@
-# KrishiMitra AI — Smart Farming Advisory & Direct Market Platform
+﻿# KrishiMitra AI — Smart Farming Advisory & Direct Market Platform
 
 **Final Year BSc IT Project — by Ketan**
 
@@ -28,18 +28,19 @@ KrishiMitraAI/
 │   ├── knowledge/                  cropData, chatbot, weather, disease rules
 │   ├── services/                   Domain logic (orders, stats, catalog, etc.)
 │   ├── routes/                     auth, farmers, customers, products, orders,
-│   │                               advisory, admin, crops, schemes, equipment
-│   ├── tests/                      64 automated tests (node:test)
+│   │                               payments, advisory, admin, crops, schemes,
+│   │                               equipment
+│   ├── tests/                      122 automated tests (node:test)
 │   └── uploads/                    Uploaded photos land here
 ├── frontend/                       React 19 + TypeScript + Tailwind v4 SPA
 │   ├── src/
 │   │   ├── lib/                    api client, types, i18n, validators, format, cart
 │   │   ├── contexts/               Auth, Toast, I18n, Cart providers
-│   │   ├── components/             ui/ motion/ layout/ (design system)
+│   │   ├── components/             ui/ motion/ layout/ checkout/ chat/ (design system)
 │   │   ├── layouts/                Farmer/Customer/Admin shells
 │   │   └── pages/                  public, shared, farmer, customer, admin
 │   ├── public/                     manifest, service worker, PWA icons
-│   ├── scripts/generate-icons.mjs  Dependency-free PNG icon generator
+│   ├── scripts/                   Icon generator + checkout smoke test
 │   └── package.json                vite build · vitest test · icons
 ├── database/schema.sql             MySQL reference schema for production
 └── KrishiMitra_AI_Project_Report.docx   Full written project report
@@ -83,17 +84,20 @@ credentials, and `PORT`.
 
 ```bash
 cd backend
-npm test                  # 64 backend tests (node:test)
+npm test                            # 122 backend tests (node:test)
+node scripts/smoke-checkout.js      # 37 end-to-end checkout API checks
 
 cd frontend
-npm test                  # 33 frontend tests (Vitest + Testing Library)
+npm test                            # 76 frontend tests (Vitest + Testing Library)
 ```
 
 Backend tests cover validators, the crop recommender, the ML yield model,
-order lifecycle rules, review guards, and full end-to-end API flows
-(register → order → deliver → review). Frontend tests cover the lib layer
-(validators, i18n fallbacks, Indian-format money/numbers, cart logic) and key
-UI components (Button, Badge, status/approval states, spinners, empty states).
+order lifecycle rules, review guards, payment verification and idempotency, and
+full end-to-end API flows (register → order → deliver → review). Frontend tests
+cover the lib layer (validators, i18n fallbacks and coverage, Indian-format
+money/numbers, cart logic, Razorpay script loading) and key UI components
+(Button, Badge, status/approval states, spinners, empty states), plus the
+checkout selector, success panel, payment pill, and the landing page.
 
 ## 5. Demo accounts
 
@@ -122,9 +126,11 @@ can still register new farmer/customer accounts from the app.
 5. **Market Prices / Weather** — 7-day forecast and price trend charts.
 6. **Schemes** — enter your land size, see eligible government schemes first.
 7. **My Products** → list a product **with a real photo**; **My Orders** →
-   confirm/ship/deliver an order placed on your produce.
+   confirm/ship/deliver an order placed on your produce, and a Cash on Delivery
+   order flips to **Paid** automatically on delivery.
 8. Log out, log in as **Customer** (`9123456780` / `customer123`) → Marketplace
-   (search + pagination), add to cart, **Place Order**, then **review** a
+   (search + pagination), add to cart, pick **Cash on Delivery** or **Pay
+   Online** at checkout (Quick Pay skips the extra click), then **review** a
    delivered order in My Orders.
 9. Log in as **Admin** (`admin` / `admin123`) → dashboard charts (order trend,
    status breakdown), approve/reject products, manage crop database, add a
@@ -166,6 +172,13 @@ training/prediction code doesn't need to change.
 - JWT auth with role guards on every protected route; API rate limiting; helmet
   headers; JSON 404/error responses (never Express HTML error pages).
 - Secrets live in `.env` (git-ignored).
+- **Payments**: the Razorpay key secret is server-side only — the browser gets
+  just the key ID. Order amounts are recomputed on the server, and a payment is
+  marked `Paid` only after a timing-safe HMAC signature check plus a re-fetch
+  of the order amount from Razorpay. A COD order can never be settled by a
+  gateway callback. `idempotencyKey` is scoped per customer and basket to block
+  duplicate orders. Stock is only released for orders that were genuinely never
+  paid.
 
 ## 9. Frontend architecture (v3)
 
@@ -186,12 +199,69 @@ training/prediction code doesn't need to change.
 - **PWA**: manifest, service worker (network-first with app-shell cache, never
   intercepts `/api` or `/uploads`), and generated app icons.
 
+## 9b. Checkout & payments
+
+Checkout is one shared flow used by the cart, **Buy Now**, and **Quick Pay** —
+`frontend/src/hooks/useCheckout.ts` is the single state machine, so no screen
+re-implements payment logic.
+
+**Payment methods**
+
+| Method | Behaviour |
+| --- | --- |
+| Pay Online (Razorpay) | UPI, cards, netbanking, wallets. Order is created `Pending`/Unpaid, stock is held, and the order flips to `Paid` only after the server verifies the gateway signature. |
+| Cash on Delivery | Order is created `Pending`/Unpaid with no gateway call. The farmer collects cash, and the order is marked `Paid` when they mark it Delivered. |
+
+**Endpoints** (`backend/routes/payments.js`, mounted at `/api/payments`)
+
+| Route | Purpose |
+| --- | --- |
+| `GET /config` | Public config: `enabled`, `keyId`, `codEnabled`, `codMaxAmount`. Never returns the key secret. |
+| `POST /create-order` | Creates the order and, for online payments, the Razorpay order. Accepts `paymentMethod` and an `idempotencyKey`. |
+| `POST /verify` | Timing-safe HMAC check of the signature plus a gateway amount/currency re-fetch before marking `Paid`. |
+| `POST /cancel-order` | Releases stock held by a checkout the customer abandoned. |
+
+**Rules the server enforces** (never trust the client)
+
+- Amounts are computed from the product price on the server; the browser total
+  is display-only.
+- COD is capped by `COD_MAX_AMOUNT` (default ₹25,000) and can be switched off
+  with `COD_ENABLED=false`. The rule is checked in `orderService` *before* any
+  stock is reserved, so a refused COD order never holds stock.
+- `idempotencyKey` is scoped per customer and per basket, so a double click,
+  retry, or a colliding key cannot create two orders or expose someone else's.
+- A COD order can never be settled by a gateway callback, and a retried online
+  checkout reuses its existing Razorpay order instead of opening a second
+  payable one.
+- **COD works with no Razorpay keys configured**, which is what the demo uses.
+
+**Configuration** — copy `backend/.env.example` to `backend/.env`:
+
+```env
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx   # both keys or online payment stays off
+RAZORPAY_KEY_SECRET=your_key_secret     # server-side only, never sent to the browser
+COD_ENABLED=true
+COD_MAX_AMOUNT=25000
+```
+
+**Try it**
+
+```bash
+cd backend && npm test                    # 122 tests
+node scripts/smoke-checkout.js            # 37 end-to-end API checks
+cd ../frontend && npx vitest run           # 76 tests
+```
+
+Razorpay test card `4111 1111 1111 1111`, any future expiry, any OTP.
+Decline: `4000 0000 0000 0002`. Auth failure: `4000 0000 0000 3160`.
+
 ## 10. Moving to production (optional, for future scope)
 
 - Swap `backend/db.js` for MySQL using `database/schema.sql`.
 - Replace `backend/knowledge/weather.js` with a real weather provider.
 - Move product images from local disk to S3/Cloudinary.
-- Add a payment gateway (Razorpay/Stripe) to the order flow.
+- Add a Razorpay webhook so payments reconcile server-side, not only via the
+  browser callback.
 - Add explicit refresh-token handling and per-user admin roles.
 
 ## 11. v2.1 — bugs found and fixed during a full audit
@@ -240,6 +310,8 @@ bug** by construction — components render their own state via the framework.
 - Weather data is deterministically generated, not live — a real provider is a
   small change to `backend/knowledge/weather.js`.
 - Disease diagnosis is heuristic guidance, not a substitute for a lab test.
-- No payment gateway integration (listed as future scope).
+- Online payment confirmation relies on the Razorpay Checkout browser callback;
+  there is no webhook yet, so a customer who closes the tab after paying could
+  leave an order stuck as Unpaid until it is cancelled.
 - Single hardcoded admin account (fine for a college project; a real admin
   table would be needed for multi-admin use).
