@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
@@ -7,11 +7,14 @@ import { useToast } from '../../contexts/ToastContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { formatINR } from '../../lib/format';
 import { cartLinesWithCatalog } from '../../lib/cart';
+import { useCheckout, usePreloadRazorpay, type CheckoutLine } from '../../hooks/useCheckout';
+import { PaymentMethodSelector } from '../../components/checkout/PaymentMethodSelector';
+import { OrderSuccessPanel } from '../../components/checkout/OrderSuccessPanel';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { Button } from '../../components/ui/Button';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { PageHeader } from '../../components/ui/PageHeader';
-import type { Address, Product } from '../../lib/types';
+import type { Address, Order, PaymentConfig, PaymentMethod, Product } from '../../lib/types';
 
 export function CartPage() {
   const { user } = useAuth();
@@ -19,13 +22,22 @@ export function CartPage() {
   const { errorToast, successToast } = useToast();
   const { translate } = useI18n();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [catalog, setCatalog] = useState<Map<number, Product>>(new Map());
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressId, setAddressId] = useState<number | 'new' | ''>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [placing, setPlacing] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+  const [method, setMethod] = useState<PaymentMethod>('razorpay');
+  const [placed, setPlaced] = useState<Order[]>([]);
+  const [placedMethod, setPlacedMethod] = useState<PaymentMethod | null>(null);
+
+  // "Buy Now" from a product page arrives as ?buyNow=<productId>&qty=<n> and
+  // checks out just that line, leaving the rest of the cart alone.
+  const buyNowId = Number(searchParams.get('buyNow')) || 0;
+  const buyNowQty = Math.max(1, Number(searchParams.get('qty')) || 1);
 
   useEffect(() => {
     if (!user) return;
@@ -60,62 +72,144 @@ export function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, lines, syncFromServer]);
+  }, [user, lines, syncFromServer, translate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .paymentConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setPaymentConfig(cfg);
+        // Default to online when it exists, otherwise the only option on offer.
+        setMethod(cfg.enabled ? 'razorpay' : 'cod');
+      })
+      .catch(() => setPaymentConfig(null));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  usePreloadRazorpay(Boolean(paymentConfig?.enabled));
 
   const viewLines = useMemo(() => cartLinesWithCatalog(lines, catalog), [lines, catalog]);
-  const total = useMemo(() => viewLines.reduce((s, l) => s + l.lineTotal, 0), [viewLines]);
+
+  // Restrict the basket to the Buy Now item when that flow is active.
+  const activeLines: CheckoutLine[] = useMemo(() => {
+    if (buyNowId) {
+      const product = catalog.get(buyNowId);
+      if (!product) return [];
+      return [{ productId: product.id, quantity: buyNowQty, productName: product.cropName }];
+    }
+    return viewLines.map((l) => ({
+      productId: l.product.id,
+      quantity: l.quantity,
+      productName: l.product.cropName,
+    }));
+  }, [buyNowId, buyNowQty, catalog, viewLines]);
+
+  const total = useMemo(
+    () => (buyNowId ? buyNowQty * (catalog.get(buyNowId)?.price ?? 0) : viewLines.reduce((s, l) => s + l.lineTotal, 0)),
+    [buyNowId, buyNowQty, catalog, viewLines],
+  );
+
+  const address = useMemo(() => {
+    if (addressId === '' || addressId === 'new') return '';
+    return addresses.find((a) => a.id === Number(addressId))?.fullAddress || '';
+  }, [addressId, addresses]);
+
+  const resolveAddress = useCallback((): string | null => {
+    if (addressId === '' || addressId === 'new' || !addresses.length) {
+      errorToast(translate('cart.addDeliveryAddress'));
+      return null;
+    }
+    const found = addresses.find((a) => a.id === Number(addressId))?.fullAddress;
+    if (!found) {
+      errorToast(translate('cart.addDeliveryAddress'));
+      return null;
+    }
+    return found;
+  }, [addressId, addresses, errorToast, translate]);
+
+  const onSuccess = useCallback(
+    (result: { orders: Order[]; failed: string[]; method: PaymentMethod | null }) => {
+      result.orders.forEach((o) => removeProduct(o.productId));
+      setPlaced(result.orders);
+      setPlacedMethod(result.method);
+      successToast(translate('cart.orderPlaced').replace('{count}', String(result.orders.length)));
+      if (result.failed.length) {
+        errorToast(`${translate('cart.placeOrderError')}: ${result.failed.join(', ')}`);
+      }
+      setSearchParams({}, { replace: true });
+    },
+    [removeProduct, successToast, errorToast, translate, setSearchParams],
+  );
+
+  const onFailure = useCallback(
+    (message: string) => {
+      if (message === 'payment-unavailable') errorToast(translate('pay.onlineUnavailable'));
+      else if (message === 'missing-address') errorToast(translate('cart.addDeliveryAddress'));
+      else errorToast(message || translate('cart.placeOrderError'));
+    },
+    [errorToast, translate],
+  );
+
+  const { busy, activeLine, checkout } = useCheckout({
+    lines: activeLines,
+    address,
+    config: paymentConfig,
+    method,
+    customerName: user?.name ?? '',
+    onSuccess,
+    onFailure,
+  });
+
+  const startCheckoutFlow = async (override?: PaymentMethod) => {
+    if (!user) {
+      navigate('/login', { state: { from: '/customer/cart' } });
+      return;
+    }
+    if (activeLines.length === 0) return;
+    if (!resolveAddress()) return;
+    if (override) setMethod(override);
+    await checkout(override);
+  };
 
   const maxQtyFor = (productId: number) => {
     const p = catalog.get(productId);
     return Math.max(1, p ? Math.floor(Number(p.quantity) || 1) : 1);
   };
 
-  const placeOrder = async () => {
-    if (!user || viewLines.length === 0) return;
-    if (addressId === '' || addressId === 'new' || !addresses.length) {
-      errorToast(translate('cart.addDeliveryAddress'));
-      return;
-    }
-    const address = addresses.find((a) => a.id === Number(addressId))?.fullAddress;
-    if (!address) {
-      errorToast(translate('cart.addDeliveryAddress'));
-      return;
-    }
-    setPlacing(true);
-    try {
-      const placedIds: number[] = [];
-      const failedNames: string[] = [];
-      for (const line of lines) {
-        const product = catalog.get(line.productId);
-        if (!product) {
-          failedNames.push(`#${line.productId}`);
-          continue;
-        }
-        try {
-          await api.placeOrder({ productId: line.productId, quantity: line.quantity, address });
-          placedIds.push(line.productId);
-        } catch {
-          failedNames.push(product.cropName);
-        }
-      }
-      if (placedIds.length) {
-        placedIds.forEach((id) => removeProduct(id));
-        successToast(translate('cart.orderPlaced').replace('{count}', String(placedIds.length)));
-        if (failedNames.length) {
-          errorToast(`${translate('cart.placeOrderError')}: ${failedNames.join(', ')}`);
-        } else {
-          navigate('/customer/orders');
-        }
-      } else {
-        errorToast(translate('cart.placeOrderError'));
-      }
-    } finally {
-      setPlacing(false);
-    }
-  };
+  const canQuickPay = Boolean(address) && activeLines.length > 0 && (method === 'cod' || paymentConfig?.enabled);
+  const onlineChosen = method === 'razorpay' && Boolean(paymentConfig?.enabled);
 
   if (loading) return <PageLoader label={translate('cart.loading')} />;
   if (error) return <ErrorState message={error} />;
+
+  if (placed.length) {
+    return (
+      <div className="space-y-6">
+        <OrderSuccessPanel
+          orders={placed}
+          method={placedMethod}
+          onContinueShopping={() => {
+            setPlaced([]);
+            navigate('/customer/market');
+          }}
+        />
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setPlaced([])}
+            className="text-sm font-medium text-crop-700 hover:underline"
+          >
+            ← {translate('cart.backToCart')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (viewLines.length === 0)
     return (
       <div className="mx-auto max-w-3xl">
@@ -234,9 +328,55 @@ export function CartPage() {
             </Link>
           </div>
 
-          <Button fullWidth size="lg" onClick={placeOrder} loading={placing}>
-            {translate('cart.placeOrder').replace('{total}', formatINR(total))}
-          </Button>
+          <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+            <PaymentMethodSelector
+              config={paymentConfig}
+              method={method}
+              onChange={setMethod}
+              total={total}
+              disabled={busy}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              fullWidth
+              size="lg"
+              variant={onlineChosen ? 'primary' : 'success'}
+              onClick={() => startCheckoutFlow()}
+              loading={busy}
+              disabled={activeLines.length === 0}
+            >
+              {busy && activeLine !== null
+                ? translate('pay.paying')
+                : onlineChosen
+                  ? translate('pay.payNow').replace('{total}', formatINR(total))
+                  : translate('pay.payNowCod').replace('{total}', formatINR(total))}
+            </Button>
+
+            {canQuickPay ? (
+              <Button
+                fullWidth
+                variant="outline"
+                onClick={() => startCheckoutFlow(onlineChosen ? 'cod' : 'razorpay')}
+                disabled={busy}
+              >
+                ⚡ {translate('pay.quickPay')} · {onlineChosen ? translate('pay.methodCod') : translate('pay.methodOnline')}
+              </Button>
+            ) : null}
+
+            <div className="flex items-center justify-center gap-4 pt-1 text-xs font-medium text-crop-700">
+              <Link to="/customer/market" className="hover:underline">
+                {translate('pay.continueShopping')}
+              </Link>
+              <Link to="/customer/orders" className="hover:underline">
+                {translate('pay.myOrders')}
+              </Link>
+              <Link to="/customer/orders" className="hover:underline">
+                {translate('pay.trackOrder')}
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

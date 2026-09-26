@@ -3,6 +3,7 @@ const path = require('path');
 const config = require('./config');
 const { CROP_CATALOG_SEED } = require('./knowledge/cropCatalogSeed');
 const { buildDemoSeed } = require('./knowledge/demoSeed');
+const { resolveCategory } = require('./knowledge/productCategories');
 
 const DB_FILE = path.resolve(__dirname, config.dbFile.replace(/^\.\//, ''));
 const DEMO = buildDemoSeed();
@@ -159,6 +160,26 @@ function healSchemes(data) {
   }
 }
 
+// Listings created before categories existed get one inferred from the crop name.
+function healProductCategories(data) {
+  for (const row of data.products || []) {
+    if (row.category === undefined || row.category === null || row.category === '') {
+      row.category = resolveCategory(row);
+    }
+  }
+}
+
+// Orders created before payment methods existed are treated as Cash on Delivery,
+// which matches how they were actually collected.
+function healOrderPayments(data) {
+  for (const row of data.orders || []) {
+    if (row.paymentMethod !== 'razorpay' && row.paymentMethod !== 'cod') {
+      row.paymentMethod = 'cod';
+    }
+    if (!row.paymentStatus) row.paymentStatus = 'pending';
+  }
+}
+
 function load() {
   if (!fs.existsSync(DB_FILE)) {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
@@ -169,6 +190,8 @@ function load() {
     healProductPhotos(data);
     healCrops(data);
     healSchemes(data);
+    healProductCategories(data);
+    healOrderPayments(data);
     return data;
   } catch {
     const backup = `${DB_FILE}.corrupt-${Date.now()}`;

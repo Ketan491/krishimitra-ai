@@ -11,6 +11,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Textarea } from '../../components/ui/Textarea';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { PaymentStatusPill } from '../../components/checkout/PaymentStatusPill';
 import { useAsync } from '../../hooks/useAsync';
 import type { Order, OrderStatus } from '../../lib/types';
 
@@ -122,6 +123,7 @@ export function FarmerOrdersPage() {
                       {translate('orders.orderId').replace('{id}', String(o.id))}
                     </h3>
                     <StatusBadge status={o.status} />
+                    <PaymentStatusPill order={o} showMethod />
                     <span className="text-xs text-ink-400">{formatDateTime(o.orderDate)}</span>
                   </div>
                   <p className="mt-1 text-sm text-ink-600">
@@ -176,6 +178,12 @@ export function FarmerOrdersPage() {
             {translate('farmer.markingAs').replace('{status}', translate('status.' + nextStatus))}
             {nextStatus === 'Delivered' ? ` ${translate('farmer.markingDeliveredNote')}` : ''}
           </p>
+          {nextStatus === 'Delivered' && noteOrder?.paymentMethod !== 'razorpay' ? (
+            <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
+              <span aria-hidden>💵</span>
+              {translate('farmer.collectCashOnDelivery')}
+            </p>
+          ) : null}
           <Textarea
             label={translate('farmer.noteFor').replace('{status}', translate('status.' + nextStatus))}
             placeholder={translate('farmer.notePlaceholder')}

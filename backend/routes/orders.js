@@ -19,11 +19,21 @@ router.post('/', requireAuth, requireRole('customer'), (req, res, next) => {
 
     const address =
       req.body.address || customer.addresses?.find((a) => a.isDefault)?.fullAddress || customer.address || '';
+
+    // This endpoint settles offline, so it can only create COD orders. An
+    // online order needs the payment routes, which attach a Razorpay order.
+    const method = orderService.normalizePaymentMethod(req.body.paymentMethod, 'cod');
+    if (method !== 'cod') {
+      throw new AppError(400, 'Online payments must go through /api/payments/create-order.');
+    }
+
     const order = orderService.placeOrder({
       customerId: Number(req.user.id),
       productId: req.body.productId,
       quantity: req.body.quantity,
       address,
+      paymentMethod: method,
+      idempotencyKey: req.body.idempotencyKey,
     });
     res.status(201).json(order);
   } catch (err) {

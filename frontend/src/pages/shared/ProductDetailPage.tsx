@@ -75,8 +75,10 @@ export function ProductDetailPage() {
 
   const buyNow = () => {
     if (!requireCustomer()) return;
+    // Route through the cart checkout so Buy Now, Quick Pay and the normal
+    // cart all share one payment implementation.
     setLineQuantity(product.id, effectiveQty);
-    navigate('/customer/cart');
+    navigate(`/customer/cart?buyNow=${product.id}&qty=${effectiveQty}`);
   };
 
   return (

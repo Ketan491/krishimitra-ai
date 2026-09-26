@@ -22,6 +22,7 @@ import type {
   PriceSummaryItem,
   PriceTrendResponse,
   Product,
+  ProductCategoriesResponse,
   ProductListResponse,
   RecommendResponse,
   ReviewResult,
@@ -31,6 +32,10 @@ import type {
   Weather,
   WishlistItem,
   YieldModelInfo,
+  PaymentConfig,
+  PaymentMethod,
+  PaymentOrderResponse,
+  PaymentVerifyResponse,
 } from './types';
 
 export const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined) || '/api';
@@ -183,6 +188,7 @@ export const api = {
     params: {
       search?: string;
       crop?: string;
+      category?: string;
       organic?: boolean | string;
       minPrice?: number;
       maxPrice?: number;
@@ -198,6 +204,7 @@ export const api = {
     const q = qs.toString();
     return request<ProductListResponse>(`/products${q ? `?${q}` : ''}`, { auth: false });
   },
+  getProductCategories: () => request<ProductCategoriesResponse>('/products/categories', { auth: false }),
   getProduct: (id: number | string) => request<Product>(`/products/${id}`, { auth: false }),
   getDeals: (limit = 6) => request<Product[]>(`/products/deals${limit ? `?limit=${limit}` : ''}`, { auth: false }),
   getFarmerProducts: (farmerId: number | string) => request<Product[]>(`/products/farmer/${farmerId}`),
@@ -211,6 +218,22 @@ export const api = {
 
   placeOrder: (payload: { productId: number | string; quantity: number | string; address?: string }) =>
     request<Order>('/orders', { method: 'POST', body: payload }),
+  paymentConfig: () => request<PaymentConfig>('/payments/config', { auth: false }),
+  createPaymentOrder: (payload: {
+    productId: number | string;
+    quantity: number | string;
+    address?: string;
+    paymentMethod?: PaymentMethod;
+    idempotencyKey?: string;
+  }) => request<PaymentOrderResponse>('/payments/create-order', { method: 'POST', body: payload }),
+  verifyPayment: (payload: {
+    orderId: number | string;
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  }) => request<PaymentVerifyResponse>('/payments/verify', { method: 'POST', body: payload }),
+  cancelPaymentOrder: (orderId: number | string) =>
+    request<{ success: boolean }>('/payments/cancel-order', { method: 'POST', body: { orderId } }),
   customerOrders: (customerId: number | string) => request<Order[]>(`/orders/customer/${customerId}`),
   farmerOrders: (farmerId: number | string) => request<Order[]>(`/orders/farmer/${farmerId}`),
   updateOrderStatus: (orderId: number | string, status: OrderStatus, note?: string) =>
@@ -232,8 +255,9 @@ export const api = {
     request<Weather>(`/advisory/weather${location ? `?location=${encodeURIComponent(location)}` : ''}`, {
       auth: false,
     }),
-  chat: (message: string) =>
-    request<ChatResponse>('/advisory/chatbot', { method: 'POST', body: { message }, auth: false }),
+  // Sent with the auth token when the visitor is logged in so the bot can answer
+  // questions about their own orders; anonymous requests still work.
+  chat: (message: string) => request<ChatResponse>('/advisory/chatbot', { method: 'POST', body: { message } }),
   yieldModelInfo: () => request<YieldModelInfo>('/advisory/yield-model-info', { auth: false }),
   predictYield: (payload: { rainfall?: number; fertilizer?: number; landSize: number }) =>
     request<PredictYieldResponse>('/advisory/predict-yield', { method: 'POST', body: payload, auth: false }),

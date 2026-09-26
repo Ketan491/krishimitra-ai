@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { formatINR, formatDateTime } from '../../lib/format';
 import { StatusBadge } from '../../components/ui/Badge';
+import { PaymentStatusPill } from '../../components/checkout/PaymentStatusPill';
 import { Button } from '../../components/ui/Button';
 import { DataTable } from '../../components/ui/DataTable';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -79,6 +80,11 @@ export function AdminOrdersPage() {
           },
           { key: 'date', header: translate('orders.placedOn'), render: (r) => formatDateTime(r.orderDate) },
           { key: 'status', header: translate('orders.status'), render: (r) => <StatusBadge status={r.status} /> },
+          {
+            key: 'payment',
+            header: translate('pay.method'),
+            render: (r) => <PaymentStatusPill order={r} showMethod />,
+          },
           {
             key: 'actions',
             header: translate('admin.actions'),

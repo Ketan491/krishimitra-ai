@@ -1,9 +1,66 @@
 const db = require('../db');
+const config = require('../config');
 const { AppError } = require('../middleware/errors');
 const { isPositiveNumber, sanitizeText } = require('../utils/validators');
 
 const STATUS_FLOW = ['Pending', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Reviewed'];
 const CANCELLABLE = ['Pending', 'Confirmed'];
+
+const PAYMENT_METHODS = ['razorpay', 'cod'];
+/** How long an idempotency key is remembered, so a client can safely retry. */
+const IDEMPOTENCY_TTL_MS = 30 * 60 * 1000;
+
+function normalizePaymentMethod(value, fallback = 'cod') {
+  const method = String(value ?? '').trim().toLowerCase();
+  if (!method) return fallback;
+  if (!PAYMENT_METHODS.includes(method)) {
+    throw new AppError(400, `paymentMethod must be one of: ${PAYMENT_METHODS.join(', ')}`);
+  }
+  return method;
+}
+
+/**
+ * Cash on Delivery is optional and capped, so the farmer is not asked to carry
+ * an unbounded amount of cash. Enforced here — the single place every order is
+ * created — so no caller can reserve stock for an impossible COD order.
+ */
+function assertCodAllowed(totalPrice) {
+  if (!config.cod.enabled) {
+    throw new AppError(400, 'Cash on Delivery is currently unavailable. Please pay online.');
+  }
+  if (totalPrice > config.cod.maxAmount) {
+    throw new AppError(
+      400,
+      `Cash on Delivery is only available up to ₹${config.cod.maxAmount}. Please pay online.`,
+    );
+  }
+  return true;
+}
+
+/**
+ * Find an order previously created with the same idempotency key so a double
+ * click, a retried request or a flaky network cannot create two orders.
+ *
+ * Scoped to the customer and matched against the intended basket, so a
+ * colliding key can never hand one shopper another shopper's order.
+ */
+function findByIdempotencyKey(key, { customerId, productId, quantity } = {}) {
+  if (!key) return null;
+  const existing = db.find('orders', (o) => o.idempotencyKey === key);
+  if (!existing) return null;
+  if (Number(existing.customerId) !== Number(customerId)) {
+    throw new AppError(409, 'This idempotency key belongs to a different order.');
+  }
+  const age = Date.now() - new Date(existing.orderDate).getTime();
+  if (age > IDEMPOTENCY_TTL_MS) return null;
+  if (
+    (productId !== undefined && Number(existing.productId) !== Number(productId)) ||
+    (quantity !== undefined && Number(existing.quantity) !== Number(quantity))
+  ) {
+    throw new AppError(409, 'This idempotency key was already used for a different order.');
+  }
+  return existing;
+}
 
 const ALLOWED_TRANSITIONS = {
   Pending: ['Confirmed', 'Cancelled'],
@@ -48,18 +105,33 @@ function enrichOrder(order, { includeCustomer = true } = {}) {
   };
 }
 
-function placeOrder({ customerId, productId, quantity, address }) {
+function placeOrder({ customerId, productId, quantity, address, paymentMethod, idempotencyKey }) {
+  // Validate the whole request before looking for a replay, so a malformed
+  // retry can never borrow a previous order's result.
+  const method = normalizePaymentMethod(paymentMethod);
   const qty = Number(quantity);
   if (!isPositiveNumber(qty)) throw new AppError(400, 'Quantity must be a positive number');
 
   const product = db.find('products', (p) => p.id === Number(productId));
   if (!product) throw new AppError(404, 'Product not found');
   if (product.approved !== true) throw new AppError(400, 'This product is not available for sale right now.');
+
+  // A retried request returns the original order instead of duplicating it.
+  // This runs before the stock check because the first attempt already took
+  // the units — replaying must not fail just because the shelf is now empty.
+  const replay = findByIdempotencyKey(idempotencyKey, { customerId, productId, quantity: qty });
+  if (replay) return enrichOrder(replay);
+
   if (qty > product.quantity) {
     throw new AppError(400, `Requested quantity (${qty}) exceeds available stock (${product.quantity}).`);
   }
 
   const totalPrice = Math.round(qty * product.price * 100) / 100;
+
+  // Rules that can reject the order are checked before anything is written, so
+  // a refused COD request never reserves stock.
+  if (method === 'cod') assertCodAllowed(totalPrice);
+
   const order = db.insert('orders', {
     customerId: Number(customerId),
     productId: product.id,
@@ -69,13 +141,37 @@ function placeOrder({ customerId, productId, quantity, address }) {
     address: sanitizeText(address, 255) || 'Delivery address on file',
     orderDate: new Date().toISOString(),
     status: 'Pending',
+    paymentMethod: method,
+    // COD and freshly created Razorpay orders are both "pending" — an order is
+    // only "paid" once money is actually confirmed (or collected on delivery).
+    paymentStatus: 'pending',
+    ...(idempotencyKey ? { idempotencyKey: String(idempotencyKey).slice(0, 80) } : {}),
     timeline: [],
   });
-  pushTimeline(order, 'Pending', 'Order placed by customer');
+  pushTimeline(order, 'Pending', method === 'cod' ? 'Order placed — pay cash on delivery' : 'Order placed by customer');
 
   db.update('products', product.id, { quantity: Math.max(0, product.quantity - qty) });
 
   return enrichOrder(db.find('orders', (o) => o.id === order.id));
+}
+
+/**
+ * Undo an order that was created for a payment that never started. The customer
+ * never completed checkout, so the row is removed rather than left as a
+ * Cancelled order in their history. Stock is released.
+ */
+function discardUnpaidOrder(orderId) {
+  const order = db.find('orders', (o) => o.id === Number(orderId));
+  if (!order) return null;
+  if (order.paymentStatus === 'paid') {
+    throw new AppError(400, 'A paid order cannot be discarded; cancel it instead.');
+  }
+  const product = db.find('products', (p) => p.id === order.productId);
+  if (product) {
+    db.update('products', product.id, { quantity: product.quantity + order.quantity });
+  }
+  db.remove('orders', order.id);
+  return order;
 }
 
 function cancelOrder(orderId, note) {
@@ -112,7 +208,19 @@ function updateStatus(orderId, status, note) {
     throw new AppError(400, `Order cannot move from ${order.status} to ${status}.`);
   }
 
-  const updated = db.update('orders', order.id, { status });
+  let updated = db.update('orders', order.id, { status });
+
+  // A Cash on Delivery order is settled the moment the goods reach the
+  // customer. Online orders are already marked paid by gateway verification.
+  if (status === 'Delivered' && updated.paymentMethod === 'cod' && updated.paymentStatus !== 'paid') {
+    db.update('orders', order.id, {
+      paymentStatus: 'paid',
+      paidAt: new Date().toISOString(),
+    });
+    // Re-read so the response reflects the settlement, not the pre-update row.
+    updated = db.find('orders', (o) => o.id === order.id);
+  }
+
   pushTimeline(updated, status, note || `Marked as ${status}`);
   return enrichOrder(updated);
 }
@@ -174,8 +282,10 @@ function listAll() {
 module.exports = {
   STATUS_FLOW,
   ALLOWED_TRANSITIONS,
+  PAYMENT_METHODS,
   placeOrder,
   cancelOrder,
+  discardUnpaidOrder,
   updateStatus,
   reviewOrder,
   listForCustomer,
@@ -183,4 +293,7 @@ module.exports = {
   listAll,
   enrichOrder,
   assertUserOwns,
+  normalizePaymentMethod,
+  findByIdempotencyKey,
+  assertCodAllowed,
 };

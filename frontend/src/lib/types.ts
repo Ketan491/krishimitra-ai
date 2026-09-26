@@ -38,10 +38,19 @@ export interface OtpSendResponse {
   expiresInSec?: number;
 }
 
+/** Marketplace shelf a listing belongs to. */
+export type ProductCategory = 'crop' | 'vegetable' | 'fruit';
+
+export interface ProductCategoriesResponse {
+  categories: ProductCategory[];
+  counts: Record<ProductCategory, number>;
+}
+
 export interface Product {
   id: number;
   farmerId: number;
   cropName: string;
+  category?: ProductCategory;
   price: number;
   quantity: number;
   unit: string;
@@ -100,9 +109,54 @@ export interface Order {
   farmerMobile?: string;
   customerName?: string;
   reviewed?: boolean;
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
+  paymentProvider?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  paidAt?: string;
 }
 
 export type OrderStatus = 'Pending' | 'Confirmed' | 'Packed' | 'Shipped' | 'Delivered' | 'Reviewed' | 'Cancelled';
+
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+
+/** How the customer chose to pay. `cod` is settled by the farmer on delivery. */
+export type PaymentMethod = 'razorpay' | 'cod';
+
+export interface PaymentConfig {
+  enabled: boolean;
+  keyId: string;
+  currency: string;
+  providerName: string;
+  codEnabled: boolean;
+  codMaxAmount: number;
+}
+
+export interface PaymentOrderRequest {
+  productId: number | string;
+  quantity: number | string;
+  address?: string;
+  paymentMethod?: PaymentMethod;
+  idempotencyKey?: string;
+}
+
+export interface PaymentOrderResponse {
+  order: Order;
+  paymentMethod: PaymentMethod;
+  razorpayOrderId?: string;
+  amount: number;
+  currency: string;
+  amountInPaise: number;
+  keyId?: string;
+  prefill?: Record<string, string>;
+}
+
+export interface PaymentVerifyResponse {
+  success: boolean;
+  order: Order;
+  alreadyProcessed?: boolean;
+}
 
 export interface TimelineEntry {
   status: OrderStatus;

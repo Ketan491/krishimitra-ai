@@ -7,6 +7,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { formatINR, formatDateTime } from '../../lib/format';
 import { Card } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/Badge';
+import { PaymentStatusPill } from '../../components/checkout/PaymentStatusPill';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Textarea } from '../../components/ui/Textarea';
@@ -97,6 +98,9 @@ export function CustomerOrdersPage() {
                       {formatINR(o.totalPrice)} ·{' '}
                       {translate('customer.orderedOn').replace('{date}', formatDateTime(o.orderDate))}
                     </p>
+                    <div className="mt-1.5">
+                      <PaymentStatusPill order={o} showMethod />
+                    </div>
                     {o.farmerName ? (
                       <p className="text-xs text-ink-500">
                         {translate('customer.from').replace('{name}', o.farmerName)}
