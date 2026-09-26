@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { Avatar } from '../ui/Avatar';
+import { ChatbotWidget } from '../chat/ChatbotWidget';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 export interface SidebarItem {
@@ -17,6 +18,8 @@ export interface DashboardShellProps {
   title: string;
   groups: { heading?: string; items: SidebarItem[] }[];
   accent?: 'green' | 'soil' | 'sky';
+  /** Floating assistant; on by default for the farmer/customer dashboards. */
+  chatWidget?: boolean;
   children?: ReactNode;
 }
 
@@ -26,7 +29,13 @@ const ACCENT_ACTIVE = {
   sky: 'bg-sky-600 text-white shadow-sm',
 };
 
-export function DashboardShell({ title, groups, accent = 'green', children }: DashboardShellProps) {
+export function DashboardShell({
+  title,
+  groups,
+  accent = 'green',
+  chatWidget = false,
+  children,
+}: DashboardShellProps) {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   const { translate } = useI18n();
@@ -164,6 +173,7 @@ export function DashboardShell({ title, groups, accent = 'green', children }: Da
         </main>
         <footer className="px-6 pb-6 pt-2 text-center text-xs text-ink-400">{translate('shell.footerNote')}</footer>
       </div>
+      {chatWidget ? <ChatbotWidget /> : null}
     </div>
   );
 }

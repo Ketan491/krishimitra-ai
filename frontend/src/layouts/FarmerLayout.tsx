@@ -30,5 +30,5 @@ export function FarmerLayout() {
       items: [{ to: '/farmer/profile', label: translate('nav.profile'), icon: '👤' }],
     },
   ];
-  return <DashboardShell title={translate('farmer.title')} groups={groups} accent="green" />;
+  return <DashboardShell title={translate('farmer.title')} groups={groups} accent="green" chatWidget />;
 }

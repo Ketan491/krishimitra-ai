@@ -4,11 +4,12 @@ import type { SelectHTMLAttributes, ReactNode } from 'react';
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
+  hint?: string;
   children: ReactNode;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, children, className = '', id, ...rest },
+  { label, error, hint, children, className = '', id, ...rest },
   ref,
 ) {
   const selectId = id || (label ? `select-${label.replace(/\s+/g, '-').toLowerCase()}` : undefined);
@@ -39,6 +40,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         </span>
       </div>
       {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
+      {hint && !error ? <p className="mt-1 text-xs text-ink-500">{hint}</p> : null}
     </div>
   );
 });

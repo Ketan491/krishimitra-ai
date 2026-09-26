@@ -70,6 +70,7 @@ router.get('/weather', (req, res) => {
 
 router.post(
   '/chatbot',
+  optionalAuth,
   validateBody([
     {
       field: 'message',
@@ -79,7 +80,7 @@ router.post(
     },
   ]),
   (req, res) => {
-    res.json({ reply: chatbot.answer(req.body.message) });
+    res.json({ reply: chatbot.answer(req.body.message, req.user) });
   },
 );
 

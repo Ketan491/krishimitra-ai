@@ -13,8 +13,9 @@ import { Pagination } from '../../components/ui/Pagination';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StaggerGroup, StaggerItem } from '../../components/motion/FadeIn';
+import { CategoryTabs } from '../../components/market/CategoryTabs';
 import { cropLocalizedKey } from '../../lib/crops';
-import type { Product, ProductListResponse } from '../../lib/types';
+import type { Product, ProductCategoriesResponse, ProductCategory, ProductListResponse } from '../../lib/types';
 
 const SORTS = [
   ['newest', 'market.sortNewest'],
@@ -25,6 +26,13 @@ const SORTS = [
   ['rating', 'market.sortRating'],
 ];
 
+const VALID_CATEGORIES: ProductCategory[] = ['crop', 'vegetable', 'fruit'];
+
+function readCategoryFromUrl(): ProductCategory | '' {
+  const raw = new URLSearchParams(window.location.search).get('category');
+  return VALID_CATEGORIES.includes(raw as ProductCategory) ? (raw as ProductCategory) : '';
+}
+
 export function MarketplacePage() {
   const { isLoggedIn, role } = useAuth();
   const { successToast, errorToast } = useToast();
@@ -32,6 +40,7 @@ export function MarketplacePage() {
 
   const [search, setSearch] = useState('');
   const [crop, setCrop] = useState('');
+  const [category, setCategory] = useState<ProductCategory | ''>(readCategoryFromUrl);
   const [organic, setOrganic] = useState('');
   const [sort, setSort] = useState(() => {
     const q = new URLSearchParams(window.location.search).get('sort');
@@ -40,6 +49,7 @@ export function MarketplacePage() {
   const [page, setPage] = useState(1);
   const [retryTick, setRetryTick] = useState(0);
   const [data, setData] = useState<ProductListResponse | null>(null);
+  const [categories, setCategories] = useState<ProductCategoriesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deals, setDeals] = useState<Product[] | null>(null);
@@ -58,6 +68,22 @@ export function MarketplacePage() {
       setPage(1);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getProductCategories()
+      .then((res) => {
+        if (!cancelled) setCategories(res);
+      })
+      .catch(() => {
+        // Tabs still render from the static list if the count call fails.
+        if (!cancelled) setCategories(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +108,7 @@ export function MarketplacePage() {
       .listProducts({
         search: search || undefined,
         crop: crop || undefined,
+        category: category || undefined,
         organic: organic || undefined,
         sort,
         page,
@@ -99,7 +126,7 @@ export function MarketplacePage() {
     return () => {
       cancelled = true;
     };
-  }, [search, crop, organic, sort, page, retryTick]);
+  }, [search, crop, category, organic, sort, page, retryTick]);
 
   const toggleWishlist = async (e: React.MouseEvent, productId: number) => {
     e.preventDefault();
@@ -121,6 +148,11 @@ export function MarketplacePage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <PageHeader title={translate('nav.marketplace')} subtitle={translate('market.subtitle')} icon="🧺" />
 
+      <div className="mb-6">
+        <h2 className="mb-2.5 text-sm font-semibold text-ink-500">{translate('market.browseByCategory')}</h2>
+        <CategoryTabs value={category} onChange={(next) => { setCategory(next); setPage(1); }} data={categories} />
+      </div>
+
       {deals && deals.length > 0 ? (
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
@@ -133,6 +165,7 @@ export function MarketplacePage() {
               onClick={() => {
                 setSearch('');
                 setCrop('');
+                setCategory('');
                 setOrganic('');
                 setPage(1);
               }}

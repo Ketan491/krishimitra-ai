@@ -5,9 +5,10 @@ import { useToast } from '../../contexts/ToastContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { formatINR, formatDate } from '../../lib/format';
 import { Card } from '../../components/ui/Card';
-import { ApprovalBadge } from '../../components/ui/Badge';
+import { ApprovalBadge, Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -16,7 +17,20 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { useAsync } from '../../hooks/useAsync';
 import { validateProductForm } from '../../lib/validators';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
-import type { Product } from '../../lib/types';
+import type { Product, ProductCategory } from '../../lib/types';
+
+const CATEGORY_OPTIONS: { value: ProductCategory; key: string; icon: string }[] = [
+  { value: 'crop', key: 'market.categoryCrop', icon: '🌾' },
+  { value: 'vegetable', key: 'market.categoryVegetable', icon: '🥬' },
+  { value: 'fruit', key: 'market.categoryFruit', icon: '🍎' },
+];
+
+const CATEGORY_ICON: Record<ProductCategory, string> = { crop: '🌾', vegetable: '🥬', fruit: '🍎' };
+
+function categoryLabel(category: ProductCategory | undefined, translate: (k: string) => string): string {
+  const c = category || 'crop';
+  return `${CATEGORY_ICON[c]} ${translate(CATEGORY_OPTIONS.find((o) => o.value === c)!.key)}`;
+}
 
 export function FarmerProductsPage() {
   const { user } = useAuth();
@@ -28,6 +42,7 @@ export function FarmerProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState({
     cropName: '',
+    category: 'crop' as ProductCategory,
     price: '',
     quantity: '',
     unit: 'kg',
@@ -44,7 +59,16 @@ export function FarmerProductsPage() {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ cropName: '', price: '', quantity: '', unit: 'kg', organic: false, compareToPrice: '', description: '' });
+    setForm({
+      cropName: '',
+      category: 'crop',
+      price: '',
+      quantity: '',
+      unit: 'kg',
+      organic: false,
+      compareToPrice: '',
+      description: '',
+    });
     setPhoto(null);
     setFieldError(null);
     setOpen(true);
@@ -54,6 +78,7 @@ export function FarmerProductsPage() {
     setEditing(p);
     setForm({
       cropName: p.cropName,
+      category: p.category || 'crop',
       price: String(p.price),
       quantity: String(p.quantity),
       unit: p.unit || 'kg',
@@ -78,6 +103,7 @@ export function FarmerProductsPage() {
     try {
       const fd = new FormData();
       fd.append('cropName', form.cropName.trim());
+      fd.append('category', form.category);
       fd.append('price', form.price);
       fd.append('quantity', form.quantity);
       fd.append('unit', form.unit);
@@ -154,7 +180,12 @@ export function FarmerProductsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="truncate font-semibold text-ink-900">{p.cropName}</h3>
-                    <ApprovalBadge approved={p.approved} />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Badge variant="gray" title={translate('farmer.category')}>
+                        {categoryLabel(p.category, translate)}
+                      </Badge>
+                      <ApprovalBadge approved={p.approved} />
+                    </div>
                   </div>
                   <p className="text-xs text-ink-500">
                     {p.quantity} {p.unit} · {translate('farmer.listedOn').replace('{date}', formatDate(p.createdAt))}
@@ -199,6 +230,18 @@ export function FarmerProductsPage() {
               value={form.cropName}
               onChange={(e) => setForm({ ...form, cropName: e.target.value })}
             />
+            <Select
+              label={translate('farmer.category')}
+              hint={translate('farmer.categoryHint')}
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })}
+            >
+              {CATEGORY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.icon} {translate(o.key)}
+                </option>
+              ))}
+            </Select>
             <Input
               label={translate('farmer.unit')}
               value={form.unit}

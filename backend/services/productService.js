@@ -2,6 +2,7 @@ const db = require('../db');
 const { removeFile } = require('./storage');
 const { AppError } = require('../middleware/errors');
 const { isPositiveNumber, isNonNegativeNumber, sanitizeText } = require('../utils/validators');
+const { PRODUCT_CATEGORIES, isValidCategory, normalizeCategory, inferCategory, resolveCategory } = require('../knowledge/productCategories');
 
 const SORTS = {
   newest: (a, b) => b.id - a.id,
@@ -35,13 +36,34 @@ function withSeller(p) {
     farmerName: farmerName || (farmer ? farmer.name : 'Unknown'),
     farmerLocation: farmerLocation || (farmer ? farmer.location : ''),
     discountPercent: discountPercent(p),
+    // Legacy rows predate categories — resolve on read so every response is complete.
+    category: resolveCategory(p),
     ...ratingFor(p.id),
   };
+}
+
+/** Category totals for the marketplace category bar (approved listings only). */
+function categoryCounts() {
+  const counts = Object.fromEntries(PRODUCT_CATEGORIES.map((c) => [c, 0]));
+  for (const p of db.all('products')) {
+    if (p.approved !== true) continue;
+    counts[resolveCategory(p)] += 1;
+  }
+  return counts;
+}
+
+function parseCategory(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (!isValidCategory(value)) {
+    throw new AppError(400, `category must be one of: ${PRODUCT_CATEGORIES.join(', ')}`);
+  }
+  return normalizeCategory(value);
 }
 
 function publicList({
   search = '',
   crop = '',
+  category = '',
   organic,
   minPrice,
   maxPrice,
@@ -62,6 +84,9 @@ function publicList({
 
   const cropQ = sanitizeText(crop, 60).toLowerCase();
   if (cropQ) items = items.filter((p) => p.cropName.toLowerCase().includes(cropQ));
+
+  const categoryQ = normalizeCategory(category);
+  if (categoryQ) items = items.filter((p) => resolveCategory(p) === categoryQ);
 
   if (organic === 'true' || organic === '1') items = items.filter((p) => p.organic === true);
 
@@ -100,6 +125,7 @@ function getById(id, reqUser) {
 
   return {
     ...product,
+    category: resolveCategory(product),
     farmerName: farmer?.name || 'Unknown',
     farmerLocation: farmer?.location || '',
     farmerAvatar: farmer?.avatarUrl || '',
@@ -163,6 +189,7 @@ function createFromForm(body, file, reqUser) {
   const sellingPrice = Number(price);
   const mrp = parseCompareTo(compareToPrice, sellingPrice);
   const photoUrl = file ? `/uploads/products/${file.filename}` : '';
+  const category = parseCategory(body.category);
 
   const record = {
     farmerId: Number(reqUser.id),
@@ -178,8 +205,10 @@ function createFromForm(body, file, reqUser) {
     approved: null,
     createdAt: new Date().toISOString(),
   };
+  // A farmer who skips the field still lands in the right shelf.
+  record.category = category || inferCategory(cleanCropName);
   if (mrp !== undefined) record.compareToPrice = mrp;
-  return db.insert('products', record);
+  return withSeller(db.insert('products', record));
 }
 
 function updateById(id, body, file, reqUser) {
@@ -207,6 +236,11 @@ function updateById(id, body, file, reqUser) {
   if (harvestDate !== undefined) patch.harvestDate = sanitizeText(harvestDate, 20);
   if (location !== undefined) patch.location = sanitizeText(location, 100);
   if (description !== undefined) patch.description = sanitizeText(description, 500);
+  if (body.category !== undefined) {
+    const category = parseCategory(body.category);
+    // Blank means "work it out from the crop name" rather than "remove the category".
+    patch.category = category || inferCategory(patch.cropName || product.cropName);
+  }
   if (file) {
     if (product.photoUrl && product.photoUrl.startsWith('/uploads')) removeFile(product.photoUrl);
     patch.photoUrl = `/uploads/products/${file.filename}`;
@@ -301,7 +335,9 @@ function priceTrend(cropName) {
 }
 
 module.exports = {
+  PRODUCT_CATEGORIES,
   publicList,
+  categoryCounts,
   getById,
   listForFarmer,
   listAll,

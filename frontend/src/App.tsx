@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+﻿import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { ToastProvider } from './contexts/ToastContext';
 import { I18nProvider } from './contexts/I18nContext';
@@ -75,7 +75,6 @@ export default function App() {
         <ScrollToTop />
         <AnimatePresence mode="wait">
           <Routes>
-            {}
             <Route element={<PublicSiteLayout />}>
               <Route index element={<LandingPage />} />
               <Route
@@ -105,8 +104,6 @@ export default function App() {
               <Route path="schemes" element={<SchemesPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
-
-            {}
             <Route element={<RoleRoute roles={['farmer']} />}>
               <Route path="farmer" element={<FarmerLayout />}>
                 <Route index element={<FarmerDashboardPage />} />
@@ -124,8 +121,6 @@ export default function App() {
                 <Route path="equipment" element={<EquipmentPage />} />
               </Route>
             </Route>
-
-            {}
             <Route element={<RoleRoute roles={['customer']} />}>
               <Route path="customer" element={<CustomerLayout />}>
                 <Route index element={<CustomerDashboardPage />} />
@@ -145,8 +140,6 @@ export default function App() {
                 <Route path="equipment" element={<EquipmentPage />} />
               </Route>
             </Route>
-
-            {}
             <Route element={<RoleRoute roles={['admin']} />}>
               <Route path="admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboardPage />} />

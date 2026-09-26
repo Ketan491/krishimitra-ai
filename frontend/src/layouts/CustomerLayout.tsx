@@ -28,5 +28,5 @@ export function CustomerLayout() {
       items: [{ to: '/customer/profile', label: translate('nav.profile'), icon: '👤' }],
     },
   ];
-  return <DashboardShell title={translate('customer.title')} groups={groups} accent="soil" />;
+  return <DashboardShell title={translate('customer.title')} groups={groups} accent="soil" chatWidget />;
 }

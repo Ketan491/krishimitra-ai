@@ -2,6 +2,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { Button } from '../ui/Button';
+import { ChatbotWidget } from '../chat/ChatbotWidget';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 type NavLinkItem = { to: string; key: string };
@@ -93,6 +94,7 @@ export function PublicSiteLayout() {
           {translate('site.copyright').replace('{year}', String(new Date().getFullYear()))}
         </div>
       </footer>
+      <ChatbotWidget />
     </div>
   );
 }

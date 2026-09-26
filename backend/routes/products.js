@@ -15,6 +15,15 @@ router.get('/', (req, res, next) => {
   }
 });
 
+// Categories + how many approved listings sit in each, for the marketplace category bar.
+router.get('/categories', (req, res, next) => {
+  try {
+    res.json({ categories: productService.PRODUCT_CATEGORIES, counts: productService.categoryCounts() });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/market-prices/summary', (req, res) => {
   res.json(statsService.priceSummary());
 });
