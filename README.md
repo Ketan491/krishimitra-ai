@@ -171,6 +171,14 @@ training/prediction code doesn't need to change.
 - Passwords hashed with bcrypt; the admin account is a single env-var check.
 - JWT auth with role guards on every protected route; API rate limiting; helmet
   headers; JSON 404/error responses (never Express HTML error pages).
+- **Behind a proxy**: `trust proxy` is set to `1` because Render forwards every
+  request with `X-Forwarded-For`. Without it Express ignores the header, `req.ip`
+  becomes Render's shared proxy address, and every visitor collapses into one
+  rate-limit bucket — so one abuser could lock out all users and per-IP
+  throttling on login/OTP was effectively off. It is deliberately **not** `true`,
+  which would let a client forge `X-Forwarded-For` and bypass every limiter. The
+  limiters supply a `keyGenerator` using `ipKeyGenerator(req.ip)` so IPv6 /64
+  rotation cannot evade a limit. Covered by `tests/rateLimitProxy.test.js`.
 - Secrets live in `.env` (git-ignored).
 - **Payments**: the Razorpay key secret is server-side only — the browser gets
   just the key ID. Order amounts are recomputed on the server, and a payment is

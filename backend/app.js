@@ -24,6 +24,18 @@ const app = express();
 
 app.disable('x-powered-by');
 
+// Render terminates TLS and forwards the request, so every incoming request
+// carries X-Forwarded-For. Without this, Express ignores that header and
+// req.ip resolves to Render's internal proxy address - which means all visitors
+// on the live site share a single rate-limit bucket, so one abuser can lock
+// everyone out of /api/auth.
+//
+// 1 means "trust the first hop only", which is correct for exactly one reverse
+// proxy in front of us. `true` would let a client send its own
+// X-Forwarded-For and bypass the limiters entirely, so it is deliberately not
+// used.
+app.set('trust proxy', 1);
+
 // Razorpay Checkout cannot work under helmet's default policy: checkout.js is
 // served from checkout.razorpay.com, the payment modal is an iframe on
 // api.razorpay.com, and the script calls api.razorpay.com from the browser.
