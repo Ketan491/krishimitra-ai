@@ -126,7 +126,10 @@ router.post(
         cropName: sanitizeText(req.body.cropName, 60),
         sowingDate: sanitizeText(req.body.sowingDate, 20) || null,
         harvestDate: sanitizeText(req.body.harvestDate, 20) || null,
-        status: sanitizeText(req.body.status, 30) || 'Sown',
+        status: sanitizeText(req.body.status, 30) || 'Growing',
+        plotName: req.body.plotName ? sanitizeText(req.body.plotName, 60) : undefined,
+        areaAcres: req.body.areaAcres ? Number(req.body.areaAcres) : undefined,
+        notes: req.body.notes ? sanitizeText(req.body.notes, 200) : undefined,
         createdAt: new Date().toISOString(),
       });
       res.status(201).json(crop);
@@ -135,6 +138,28 @@ router.post(
     }
   },
 );
+
+router.put('/:id/crops/:cropId', requireAuth, requireRole('farmer', 'admin'), (req, res, next) => {
+  try {
+    const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+    const crop = db.find('crops', (c) => c.id === Number(req.params.cropId) && c.farmerId === farmerId);
+    if (!crop) return next(new AppError(404, 'Crop not found'));
+
+    const patch = {};
+    if (req.body.cropName !== undefined) patch.cropName = sanitizeText(req.body.cropName, 60);
+    if (req.body.sowingDate !== undefined) patch.sowingDate = sanitizeText(req.body.sowingDate, 20) || null;
+    if (req.body.harvestDate !== undefined) patch.harvestDate = sanitizeText(req.body.harvestDate, 20) || null;
+    if (req.body.status !== undefined) patch.status = sanitizeText(req.body.status, 30);
+    if (req.body.plotName !== undefined) patch.plotName = sanitizeText(req.body.plotName, 60);
+    if (req.body.areaAcres !== undefined) patch.areaAcres = Number(req.body.areaAcres);
+    if (req.body.notes !== undefined) patch.notes = sanitizeText(req.body.notes, 200);
+
+    const updated = db.update('crops', crop.id, patch);
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.delete('/:id/crops/:cropId', requireAuth, requireRole('farmer', 'admin'), (req, res, next) => {
   try {

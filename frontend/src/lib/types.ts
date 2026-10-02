@@ -180,6 +180,9 @@ export interface Crop {
   sowingDate?: string | null;
   harvestDate?: string | null;
   status?: string;
+  plotName?: string;
+  areaAcres?: number;
+  notes?: string;
   createdAt: string;
 }
 
@@ -275,8 +278,23 @@ export interface Weather {
   forecast: WeatherDay[];
 }
 
+export interface ChatMessage {
+  id: string | number;
+  role: 'user' | 'model';
+  text: string;
+  at: Date | string;
+  modelUsed?: string;
+  persona?: string;
+}
+
+export type ChatPersona = 'agronomist' | 'market' | 'schemes';
+export type ChatModelTier = 'fast' | 'general' | 'complex';
+
 export interface ChatResponse {
   reply: string;
+  modelUsed?: string;
+  persona?: string;
+  fallback?: boolean;
 }
 
 export interface YieldModelInfo {
