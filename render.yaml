@@ -30,14 +30,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
     region: oregon
-    # NOT `npm ci`. frontend is an npm workspace, so `ci` replays the ROOT
-    # lockfile - and that lockfile is platform-specific: it carries only the
-    # win32-x64 native binaries (1 of 20 @typescript/typescript-* variants, 0 of
-    # the esbuild/rollup ones). On Linux it installs 174 packages and then dies
-    # with "Unable to resolve @typescript/typescript-linux-x64".
-    # `npm install` re-resolves optionalDependencies against the real platform,
-    # so the Linux binaries actually get fetched.
-    buildCommand: cd ../frontend && npm install --include=optional && npm run build
+    buildCommand: cd ../frontend && npm install && npm run build
     startCommand: node server.js
     healthCheckPath: /api/health
     autoDeployTrigger: commit

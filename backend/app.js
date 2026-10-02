@@ -54,6 +54,7 @@ app.use(
     // origin-agent-cluster interfere with.
     crossOriginOpenerPolicy: false,
     originAgentCluster: false,
+    frameguard: false,
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
@@ -64,6 +65,7 @@ app.use(
         connectSrc: ["'self'", RAZORPAY_API_ORIGIN],
         // Payment method logos (UPI, cards, net banking) come from Razorpay.
         imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],
+        frameAncestors: null,
       },
     },
   }),
