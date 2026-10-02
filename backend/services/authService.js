@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { AppError } = require('../middleware/errors');
 const { signToken, comparePassword, safeUser, adminCheck } = require('../middleware/auth');
 const { issueOtp, consumeOtp } = require('./otpService');
+const config = require('../config');
 const {
   isValidMobile,
   isValidPassword,
@@ -116,7 +117,12 @@ function login({ role, mobile, password, identifier }) {
 
 function sendOtp({ role, mobile }) {
   const { code, expiresInSec } = issueOtp(role, mobile || '');
-  return { success: true, devOtp: code, expiresInSec };
+  // The code must never travel back to the caller outside local development:
+  // anyone who knows a registered mobile number could otherwise read it here
+  // and complete the login as that user, with no access to their phone.
+  return config.exposeOtp
+    ? { success: true, devOtp: code, expiresInSec }
+    : { success: true, expiresInSec };
 }
 
 function verifyOtp({ role, mobile, otp }) {

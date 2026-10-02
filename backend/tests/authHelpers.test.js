@@ -7,6 +7,24 @@ require('./lib');
 const { signToken, requireAuth, requireRole, comparePassword, adminCheck } = require('../middleware/auth');
 const authService = require('../services/authService');
 const { AppError } = require('../middleware/errors');
+const config = require('../config');
+
+/**
+ * Run fn with the development-only OTP echo forced to `value`, then restore it.
+ * The flag is a plain config property, so this exercises the same code path the
+ * real gate uses instead of reaching into the OTP store. Tests pin the value
+ * rather than reading the environment, because a developer machine may
+ * legitimately have EXPOSE_OTP=true while the deployed default is false.
+ */
+function withExposeOtp(value, fn) {
+  const previous = config.exposeOtp;
+  config.exposeOtp = value;
+  try {
+    return fn();
+  } finally {
+    config.exposeOtp = previous;
+  }
+}
 
 test.after(cleanupDb);
 
@@ -111,7 +129,16 @@ test('authService.login accepts an identifier field', () => {
 
 test('authService.sendOtp issues a 6-digit code for existing accounts', () => {
   authService.register({ role: 'farmer', name: 'Otp Farmer', mobile: '9876500007', password: 'pass1234' });
-  const { success, devOtp, expiresInSec } = authService.sendOtp({ role: 'farmer', mobile: '9876500007' });
+
+  // Pinned rather than read from the environment: a developer machine may set
+  // EXPOSE_OTP=true, but the deployed behaviour must be the off case.
+  const shipped = withExposeOtp(false, () => authService.sendOtp({ role: 'farmer', mobile: '9876500007' }));
+  assert.strictEqual('devOtp' in shipped, false, 'the code must not be echoed by default');
+
+  // With the development opt-in the code is returned, so local work can log in.
+  const { success, devOtp, expiresInSec } = withExposeOtp(true, () =>
+    authService.sendOtp({ role: 'farmer', mobile: '9876500007' }),
+  );
   assert.strictEqual(success, true);
   assert.match(devOtp, /^\d{6}$/);
   assert.ok(expiresInSec > 0);
@@ -125,7 +152,7 @@ test('authService.sendOtp rejects unknown mobiles and wild roles', () => {
 
 test('authService.verifyOtp completes a login and rejects bad codes', () => {
   authService.register({ role: 'customer', name: 'Otp Verify', mobile: '9876500009', password: 'pass1234' });
-  const { devOtp } = authService.sendOtp({ role: 'customer', mobile: '9876500009' });
+  const { devOtp } = withExposeOtp(true, () => authService.sendOtp({ role: 'customer', mobile: '9876500009' }));
 
   const { token, role, user } = authService.verifyOtp({ role: 'customer', mobile: '9876500009', otp: devOtp });
   assert.ok(token);
@@ -138,7 +165,7 @@ test('authService.verifyOtp completes a login and rejects bad codes', () => {
 
 test('authService.verifyOtp fails after the code is consumed once', () => {
   authService.register({ role: 'farmer', name: 'Otp Consume', mobile: '9876500011', password: 'pass1234' });
-  const { devOtp } = authService.sendOtp({ role: 'farmer', mobile: '9876500011' });
+  const { devOtp } = withExposeOtp(true, () => authService.sendOtp({ role: 'farmer', mobile: '9876500011' }));
   authService.verifyOtp({ role: 'farmer', mobile: '9876500011', otp: devOtp });
   assert.throws(() => authService.verifyOtp({ role: 'farmer', mobile: '9876500011', otp: devOtp }), (e) => e.status === 401);
 });

@@ -50,7 +50,6 @@ const RAZORPAY_API_ORIGIN = 'https://api.razorpay.com';
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
-    frameguard: false,
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
@@ -61,14 +60,18 @@ app.use(
         connectSrc: ["'self'", RAZORPAY_API_ORIGIN],
         // Payment method logos (UPI, cards, net banking) come from Razorpay.
         imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],
-        frameAncestors: null,
       },
     },
   }),
 );
 app.use(
   cors({
-    origin: true,
+    // Allowlist, not `origin: true`. Reflecting arbitrary origins would let any
+    // website read API responses from a visitor's browser.
+    origin(origin, cb) {
+      if (!origin || config.corsOrigins.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
     credentials: true,
   }),
 );

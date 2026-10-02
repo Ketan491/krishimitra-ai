@@ -13,6 +13,7 @@ process.env.ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 const app = require('../app');
+const config = require('../config');
 
 let server;
 let baseUrl;
@@ -288,25 +289,55 @@ test('admin can sign in, see summary and approve a product', async () => {
 test('OTP flow: send + verify logs a registered user in', async () => {
   await register('farmer', { name: 'Otp Flow', mobile: '9876543211' });
 
-  const sent = await api('POST', '/api/auth/otp/send', {
-    body: { role: 'farmer', mobile: '9876543211' },
-  });
+  // Default configuration: over HTTP, as an attacker would see it, the code must
+  // not be returned. Knowing a mobile number must never be enough to log in.
+  // The flag is pinned because a developer machine may set EXPOSE_OTP=true.
+  const asShipped = config.exposeOtp;
+  config.exposeOtp = false;
+  let sent;
+  try {
+    sent = await api('POST', '/api/auth/otp/send', {
+      body: { role: 'farmer', mobile: '9876543211' },
+    });
+  } finally {
+    config.exposeOtp = asShipped;
+  }
   assert.strictEqual(sent.status, 200, JSON.stringify(sent.body));
-  assert.match(sent.body.devOtp, /^\d{6}$/);
   assert.strictEqual(sent.body.success, true);
+  assert.strictEqual(
+    'devOtp' in sent.body,
+    false,
+    `OTP code leaked over the API: ${JSON.stringify(sent.body)}`,
+  );
 
   const bad = await api('POST', '/api/auth/otp/verify', {
     body: { role: 'farmer', mobile: '9876543211', otp: '000000' },
   });
   assert.strictEqual(bad.status, 401);
 
-  const ok = await api('POST', '/api/auth/otp/verify', {
-    body: { role: 'farmer', mobile: '9876543211', otp: sent.body.devOtp },
-  });
+  // Happy path with the development opt-in, on a second account so the 60s
+  // per-mobile cooldown does not reject the send.
+  await register('farmer', { name: 'Otp Dev', mobile: '9876543299' });
+  const previous = config.exposeOtp;
+  config.exposeOtp = true;
+  let ok;
+  try {
+    const dev = await api('POST', '/api/auth/otp/send', {
+      body: { role: 'farmer', mobile: '9876543299' },
+    });
+    assert.match(dev.body.devOtp, /^\d{6}$/);
+
+    ok = await api('POST', '/api/auth/otp/verify', {
+      body: { role: 'farmer', mobile: '9876543299', otp: dev.body.devOtp },
+    });
+  } finally {
+    config.exposeOtp = previous;
+  }
+
   assert.strictEqual(ok.status, 200);
   assert.strictEqual(ok.body.role, 'farmer');
   assert.ok(ok.body.token);
-  assert.strictEqual(ok.body.user.name, 'Otp Flow');
+  assert.strictEqual(ok.body.user.name, 'Otp Dev');
 
   const me = await api('GET', '/api/auth/me', { token: ok.body.token });
   assert.strictEqual(me.status, 200);

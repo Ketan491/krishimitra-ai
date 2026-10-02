@@ -180,6 +180,12 @@ function cancelOrder(orderId, note) {
   if (!CANCELLABLE.includes(order.status)) {
     throw new AppError(400, `Order cannot be cancelled once it is ${order.status}.`);
   }
+  // A captured online payment cannot be undone by cancelling the order. Without
+  // this guard the customer keeps their money, the units go back on the shelf and
+  // the farmer has no order to fulfil, and there is no refund path in the app.
+  if (order.paymentStatus === 'paid') {
+    throw new AppError(400, 'This order has already been paid, so it cannot be cancelled. A refund is required.');
+  }
 
   const updated = db.update('orders', order.id, { status: 'Cancelled' });
   pushTimeline(updated, 'Cancelled', note || 'Order cancelled before dispatch');

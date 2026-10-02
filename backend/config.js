@@ -12,24 +12,36 @@ function num(name, fallback) {
 }
 
 function list(name, fallback = []) {
-  const v = process.env[name];
-  if (!v) return fallback;
-  return v
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+    const v = process.env[name];
+    if (!v) return fallback;
+    return v
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
 
-module.exports = {
-  port: int('PORT', 3000),
-  jwtSecret: process.env.JWT_SECRET || 'krishimitra-dev-secret',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  adminUsername: process.env.ADMIN_USERNAME || 'admin',
-  adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
-  corsOrigins: list('CORS_ORIGIN', ['http://localhost:5173', 'http://127.0.0.1:5173']),  loginRateLimit: {
-    windowMs: int('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
-    max: int('LOGIN_RATE_LIMIT_MAX', 20),
-  },
+  function flag(name, fallback) {
+    const v = process.env[name];
+    if (v === undefined || v === '') return fallback;
+    return /^(1|true|yes|on)$/i.test(v.trim());
+  }
+
+  module.exports = {
+    port: int('PORT', 3000),
+    jwtSecret: process.env.JWT_SECRET || 'krishimitra-dev-secret',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    adminUsername: process.env.ADMIN_USERNAME || 'admin',
+    adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
+    // Returning the OTP in the API response is a development convenience only.
+    // With it enabled anyone can request a code for any registered mobile
+    // number, read the code out of the JSON response and log in as that user, so
+    // it defaults to off and must be switched on deliberately for local work.
+    exposeOtp: flag('EXPOSE_OTP', false),
+    corsOrigins: list('CORS_ORIGIN', ['http://localhost:5173', 'http://127.0.0.1:5173']),
+    loginRateLimit: {
+      windowMs: int('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+      max: int('LOGIN_RATE_LIMIT_MAX', 20),
+    },
   otpTtlMs: int('OTP_TTL_SEC', 5 * 60) * 1000,
   otpCooldownMs: int('OTP_COOLDOWN_SEC', 60) * 1000,
   otpMaxPerWindow: int('OTP_MAX_PER_WINDOW', 5),
