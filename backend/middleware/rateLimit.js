@@ -6,6 +6,7 @@ const loginLimiter = rateLimit({
   max: config.loginRateLimit.max,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Too many login attempts. Please try again in a few minutes.' },
 });
 
@@ -14,6 +15,7 @@ const otpLimiter = rateLimit({
   max: config.otpRateLimit.max,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Too many OTP requests. Please try again later.' },
 });
 
@@ -22,6 +24,7 @@ const apiLimiter = rateLimit({
   max: config.apiRateLimit.max,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
 

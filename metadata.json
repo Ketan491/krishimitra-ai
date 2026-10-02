@@ -1,0 +1,8 @@
+{
+  "name": "KrishiMitra AI",
+  "description": "Smart farming advisory, market prices, equipment rental and direct farm-to-table marketplace for Indian farmers and buyers.",
+  "prompt": "Smart farming advisory, market prices, equipment rental and direct farm-to-table marketplace for Indian farmers and buyers.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

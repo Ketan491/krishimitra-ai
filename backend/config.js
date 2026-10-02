@@ -21,7 +21,7 @@ function list(name, fallback = []) {
 }
 
 module.exports = {
-  port: int('PORT', 5000),
+  port: int('PORT', 3000),
   jwtSecret: process.env.JWT_SECRET || 'krishimitra-dev-secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   adminUsername: process.env.ADMIN_USERNAME || 'admin',

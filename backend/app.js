@@ -22,6 +22,7 @@ const schemeRoutes = require('./routes/schemes');
 
 const app = express();
 
+app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
 // Razorpay Checkout cannot work under helmet's default policy: checkout.js is
@@ -38,6 +39,7 @@ const RAZORPAY_API_ORIGIN = 'https://api.razorpay.com';
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    frameguard: false,
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
@@ -48,16 +50,15 @@ app.use(
         connectSrc: ["'self'", RAZORPAY_API_ORIGIN],
         // Payment method logos (UPI, cards, net banking) come from Razorpay.
         imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],
+        frameAncestors: null,
       },
     },
   }),
 );
 app.use(
   cors({
-    origin(origin, cb) {
-      if (!origin || config.corsOrigins.includes(origin)) return cb(null, true);
-      return cb(null, false);
-    },
+    origin: true,
+    credentials: true,
   }),
 );
 app.use(express.json({ limit: '1mb' }));
