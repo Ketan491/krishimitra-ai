@@ -163,6 +163,8 @@ export const api = {
   getFarmerCrops: (id: number | string) => request<Crop[]>(`/farmers/${id}/crops`),
   addCrop: (id: number | string, payload: Partial<Crop>) =>
     request<Crop>(`/farmers/${id}/crops`, { method: 'POST', body: payload }),
+  updateFarmerCrop: (id: number | string, cropId: number | string, payload: Partial<Crop>) =>
+    request<Crop>(`/farmers/${id}/crops/${cropId}`, { method: 'PUT', body: payload }),
   deleteCrop: (id: number | string, cropId: number | string) =>
     request<{ success: boolean }>(`/farmers/${id}/crops/${cropId}`, { method: 'DELETE' }),
 
@@ -257,7 +259,23 @@ export const api = {
     }),
   // Sent with the auth token when the visitor is logged in so the bot can answer
   // questions about their own orders; anonymous requests still work.
-  chat: (message: string) => request<ChatResponse>('/advisory/chatbot', { method: 'POST', body: { message } }),
+  chat: (
+    message: string,
+    options: {
+      history?: Array<{ role: 'user' | 'model'; text: string }>;
+      persona?: 'agronomist' | 'market' | 'schemes';
+      modelType?: 'fast' | 'general' | 'complex';
+    } = {},
+  ) =>
+    request<ChatResponse>('/advisory/chat', {
+      method: 'POST',
+      body: {
+        message,
+        history: options.history,
+        persona: options.persona,
+        modelType: options.modelType,
+      },
+    }),
   yieldModelInfo: () => request<YieldModelInfo>('/advisory/yield-model-info', { auth: false }),
   predictYield: (payload: { rainfall?: number; fertilizer?: number; landSize: number }) =>
     request<PredictYieldResponse>('/advisory/predict-yield', { method: 'POST', body: payload, auth: false }),

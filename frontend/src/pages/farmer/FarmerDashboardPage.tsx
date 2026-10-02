@@ -8,13 +8,18 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusBadge, ApprovalBadge } from '../../components/ui/Badge';
 import { PageLoader, ErrorState, EmptyState } from '../../components/ui/StateComponents';
 import { FadeIn } from '../../components/motion/FadeIn';
+import { CropGrowthTracker } from '../../components/farmer/CropGrowthTracker';
 import { useAsync } from '../../hooks/useAsync';
-import type { FarmerDashboard } from '../../lib/types';
+import type { FarmerDashboard, Crop } from '../../lib/types';
 
 export function FarmerDashboardPage() {
   const { user } = useAuth();
   const { translate } = useI18n();
   const { data, loading, error, refetch } = useAsync<FarmerDashboard>(() => api.farmerDashboard(user!.id), [user?.id]);
+  const { data: crops, loading: cropsLoading, refetch: refetchCrops } = useAsync<Crop[]>(
+    () => (user ? api.getFarmerCrops(user.id) : Promise.resolve([])),
+    [user?.id],
+  );
 
   if (loading) return <PageLoader label={translate('farmer.dashboardLoading')} />;
   if (error || !data) return <ErrorState message={error || translate('farmer.dashboardLoadError')} onRetry={refetch} />;
@@ -70,6 +75,14 @@ export function FarmerDashboardPage() {
           ))}
         </div>
       ) : null}
+
+      <FadeIn y={12}>
+        <CropGrowthTracker
+          crops={crops || []}
+          onRefresh={refetchCrops}
+          loading={cropsLoading}
+        />
+      </FadeIn>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>

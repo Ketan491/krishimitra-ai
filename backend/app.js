@@ -50,6 +50,10 @@ const RAZORPAY_API_ORIGIN = 'https://api.razorpay.com';
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    // Razorpay's checkout runs in a popup/iframe flow that COOP and
+    // origin-agent-cluster interfere with.
+    crossOriginOpenerPolicy: false,
+    originAgentCluster: false,
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
@@ -98,11 +102,48 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { maxAge: '1
 
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(FRONTEND_DIST)) {
-  app.use(express.static(FRONTEND_DIST));
+  // If an old build's JS or CSS bundle is requested by a cached index.html,
+  // redirect to the latest current asset so the browser never 404s on script loading.
+  app.get('/assets/index-:hash.js', (req, res, next) => {
+    const requestedFile = path.join(FRONTEND_DIST, 'assets', `index-${req.params.hash}.js`);
+    if (fs.existsSync(requestedFile)) return next();
+    const assetsDir = path.join(FRONTEND_DIST, 'assets');
+    const currentJs = fs.readdirSync(assetsDir).find((f) => f.startsWith('index-') && f.endsWith('.js'));
+    if (currentJs) {
+      return res.redirect(`/assets/${currentJs}`);
+    }
+    next();
+  });
+
+  app.get('/assets/index-:hash.css', (req, res, next) => {
+    const requestedFile = path.join(FRONTEND_DIST, 'assets', `index-${req.params.hash}.css`);
+    if (fs.existsSync(requestedFile)) return next();
+    const assetsDir = path.join(FRONTEND_DIST, 'assets');
+    const currentCss = fs.readdirSync(assetsDir).find((f) => f.startsWith('index-') && f.endsWith('.css'));
+    if (currentCss) {
+      return res.redirect(`/assets/${currentCss}`);
+    }
+    next();
+  });
+
+  app.use(
+    express.static(FRONTEND_DIST, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      },
+    }),
+  );
 
   app.use((req, res, next) => {
     if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
     if (req.path.includes('.')) return next();
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     return res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
   });
 }

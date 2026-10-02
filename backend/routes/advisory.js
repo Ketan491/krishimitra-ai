@@ -11,6 +11,7 @@ const chatbot = require('../knowledge/chatbot');
 const yieldPredictor = require('../ml/yieldPredictor');
 const diseaseData = require('../knowledge/diseaseData');
 const { sanitizeText, isNonNegativeNumber, isPositiveNumber } = require('../utils/validators');
+const geminiService = require('../services/geminiService');
 
 const router = express.Router();
 
@@ -69,18 +70,58 @@ router.get('/weather', (req, res) => {
 });
 
 router.post(
+  '/chat',
+  optionalAuth,
+  validateBody([
+    {
+      field: 'message',
+      test: (v) => sanitizeText(v, 2000).length > 0,
+      message: 'message is required',
+      sanitize: (v) => sanitizeText(v, 2000),
+    },
+  ]),
+  async (req, res, next) => {
+    try {
+      const { message, history, persona, modelType } = req.body;
+      const result = await geminiService.generateMultiTurnChat({
+        message,
+        history,
+        persona,
+        modelType,
+        user: req.user,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
   '/chatbot',
   optionalAuth,
   validateBody([
     {
       field: 'message',
-      test: (v) => sanitizeText(v, 300).length > 0,
+      test: (v) => sanitizeText(v, 2000).length > 0,
       message: 'message is required',
-      sanitize: (v) => sanitizeText(v, 300),
+      sanitize: (v) => sanitizeText(v, 2000),
     },
   ]),
-  (req, res) => {
-    res.json({ reply: chatbot.answer(req.body.message, req.user) });
+  async (req, res, next) => {
+    try {
+      const { message, history, persona, modelType } = req.body;
+      const result = await geminiService.generateMultiTurnChat({
+        message,
+        history,
+        persona,
+        modelType,
+        user: req.user,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
   },
 );
 

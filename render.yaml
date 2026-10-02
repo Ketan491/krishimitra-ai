@@ -25,6 +25,10 @@ services:
         sync: false
       - key: RAZORPAY_CURRENCY
         sync: false
+      # Gemini (AI chat). Unset is safe: geminiService keeps its client null and
+      # the chat route reports the feature as unavailable instead of crashing.
+      - key: GEMINI_API_KEY
+        sync: false
     region: oregon
     buildCommand: cd ../frontend && npm ci && npm run build
     startCommand: node server.js

@@ -180,6 +180,36 @@ function healOrderPayments(data) {
   }
 }
 
+function healFarmerCrops(data) {
+  if (!Array.isArray(data.crops) || data.crops.length === 0) {
+    const now = Date.now();
+    data.crops = [
+      {
+        id: 1,
+        farmerId: 1,
+        cropName: 'Onion',
+        sowingDate: new Date(now - 45 * 86400000).toISOString().slice(0, 10),
+        harvestDate: new Date(now + 75 * 86400000).toISOString().slice(0, 10),
+        status: 'Growing',
+        plotName: 'East Field (Plot A)',
+        areaAcres: 2.0,
+        createdAt: new Date(now - 45 * 86400000).toISOString(),
+      },
+      {
+        id: 2,
+        farmerId: 1,
+        cropName: 'Tomato',
+        sowingDate: new Date(now - 30 * 86400000).toISOString().slice(0, 10),
+        harvestDate: new Date(now + 60 * 86400000).toISOString().slice(0, 10),
+        status: 'Growing',
+        plotName: 'Polyhouse 1',
+        areaAcres: 1.0,
+        createdAt: new Date(now - 30 * 86400000).toISOString(),
+      },
+    ];
+  }
+}
+
 function load() {
   if (!fs.existsSync(DB_FILE)) {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
@@ -192,6 +222,7 @@ function load() {
     healSchemes(data);
     healProductCategories(data);
     healOrderPayments(data);
+    healFarmerCrops(data);
     return data;
   } catch {
     const backup = `${DB_FILE}.corrupt-${Date.now()}`;
