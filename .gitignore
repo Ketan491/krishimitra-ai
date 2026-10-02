@@ -8,3 +8,12 @@ backend/uploads/*
 *.log
 backend/tests/.tmp-trace.json
 frontend/src/lib/i18n-scratch-*.json
+
+# Per-process data files written by the test suites. Each test run creates
+# backend/data.unit-<pid>.json and these were being committed by accident.
+backend/data.unit-*.json
+
+# Lockfiles are intentionally not committed: they were authored on Windows and
+# pinned native binaries (@typescript/typescript-win32-x64, etc.) that do not
+# exist on Render's Linux builder. Install resolves per platform instead.
+package-lock.json

@@ -30,7 +30,24 @@ services:
       - key: GEMINI_API_KEY
         sync: false
     region: oregon
-    buildCommand: cd .. && npm install && npm run build
+    # Two separate problems made the Linux build fail, and both are addressed
+    # here.
+    #
+    # 1. `npm ci` replays a lockfile, and a lockfile written on one platform
+    #    cannot express another's native binaries. Ours carried 1 of the 20
+    #    @typescript/typescript-* variants and none of the esbuild/rollup ones,
+    #    so the build died with "Unable to resolve
+    #    @typescript/typescript-linux-x64". `npm install` re-resolves
+    #    optionalDependencies against the platform it is running on, so the
+    #    Linux binaries actually get fetched.
+    #
+    # 2. A single `npm install` at the repo root walked the npm workspaces tree
+    #    and crashed npm itself: "Cannot read properties of null (reading
+    #    'edgesOut')". Workspaces are gone from package.json now, so backend and
+    #    frontend install independently.
+    #
+    # Paths are relative to rootDir (backend), hence the ../ prefixes.
+    buildCommand: npm install --prefix ../backend && npm install --prefix ../frontend && npm run build --prefix ../frontend
     startCommand: node server.js
     healthCheckPath: /api/health
     autoDeployTrigger: commit

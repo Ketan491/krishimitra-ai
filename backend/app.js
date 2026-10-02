@@ -54,7 +54,6 @@ app.use(
     // origin-agent-cluster interfere with.
     crossOriginOpenerPolicy: false,
     originAgentCluster: false,
-    frameguard: false,
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
@@ -65,7 +64,10 @@ app.use(
         connectSrc: ["'self'", RAZORPAY_API_ORIGIN],
         // Payment method logos (UPI, cards, net banking) come from Razorpay.
         imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],
-        frameAncestors: null,
+        // frame-src above lets us embed Razorpay's iframe. frame-ancestors is the
+        // opposite direction - it stops other sites framing *us*, which is the
+        // clickjacking defence. Disabling it gained Razorpay nothing.
+        frameAncestors: ["'self'"],
       },
     },
   }),

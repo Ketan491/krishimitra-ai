@@ -10,31 +10,43 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { StaggerGroup, StaggerItem } from '../../components/motion/FadeIn';
 import type { AdvisoryOptions, RecommendResponse } from '../../lib/types';
 
+// Keys must match the values the API actually accepts. GET /api/advisory/options
+// returns lowercase enums and POST /api/advisory/recommend validates against
+// exactly those, so the old Title Case values were rejected with 400 on every
+// submit - and 'Alluvial'/'Laterite' are not in the backend soil enum at all, so
+// they could never have worked regardless of casing.
 const SOIL_LABEL_KEYS: Record<string, string> = {
-  Alluvial: 'recommend.soilAlluvial',
-  Black: 'recommend.soilBlack',
-  Red: 'recommend.soilRed',
-  Laterite: 'recommend.soilLaterite',
-  Sandy: 'recommend.soilSandy',
-  Clay: 'recommend.soilClay',
-  Loamy: 'recommend.soilLoamy',
+  sandy: 'recommend.soilSandy',
+  loamy: 'recommend.soilLoamy',
+  clay: 'recommend.soilClay',
+  black: 'recommend.soilBlack',
+  red: 'recommend.soilRed',
 };
 
 const SEASON_LABEL_KEYS: Record<string, string> = {
-  Kharif: 'recommend.seasonKharif',
-  Rabi: 'recommend.seasonRabi',
-  Zaid: 'recommend.seasonZaid',
+  kharif: 'recommend.seasonKharif',
+  rabi: 'recommend.seasonRabi',
+  zaid: 'recommend.seasonZaid',
 };
 
+// The backend also offers 'annual', but this namespace has no translation for
+// it, so it is left out rather than rendered as a raw untranslated string.
+// Water availability stays a local list on purpose: options.waterLevels is a
+// different axis (Low/Medium/High depth) from the irrigated/rain-fed choice
+// offered here.
 const WATER_LABEL_KEYS: Record<string, string> = {
   Irrigated: 'recommend.waterIrrigated',
   'Rain-fed': 'recommend.waterRainFed',
 };
 
+const FALLBACK_SOILS = ['sandy', 'loamy', 'clay', 'black', 'red'];
+const FALLBACK_SEASONS = ['kharif', 'rabi', 'zaid'];
+const WATER_OPTIONS = ['Irrigated', 'Rain-fed'];
+
 export function CropRecommendPage() {
   const { translate } = useI18n();
-  const [soilType, setSoilType] = useState('Alluvial');
-  const [season, setSeason] = useState('Kharif');
+  const [soilType, setSoilType] = useState('loamy');
+  const [season, setSeason] = useState('kharif');
   const [waterLevel, setWaterLevel] = useState('Irrigated');
   const [location, setLocation] = useState('');
   const [options, setOptions] = useState<AdvisoryOptions | null>(null);
@@ -76,14 +88,14 @@ export function CropRecommendPage() {
             value={soilType}
             onChange={(e) => setSoilType(e.target.value)}
           >
-            {(options?.soilTypes || ['Alluvial', 'Black', 'Red', 'Laterite', 'Sandy', 'Clay', 'Loamy']).map((s) => (
+            {(options?.soilTypes?.length ? options.soilTypes : FALLBACK_SOILS).map((s) => (
               <option key={s} value={s}>
                 {translate(SOIL_LABEL_KEYS[s] ?? s)}
               </option>
             ))}
           </Select>
           <Select label={translate('recommend.seasonLabel')} value={season} onChange={(e) => setSeason(e.target.value)}>
-            {(options?.seasons || ['Kharif', 'Rabi', 'Zaid']).map((s) => (
+            {(options?.seasons?.filter((s) => SEASON_LABEL_KEYS[s]) ?? FALLBACK_SEASONS).map((s) => (
               <option key={s} value={s}>
                 {translate(SEASON_LABEL_KEYS[s] ?? s)}
               </option>
@@ -94,7 +106,7 @@ export function CropRecommendPage() {
             value={waterLevel}
             onChange={(e) => setWaterLevel(e.target.value)}
           >
-            {(options?.waterLevels || ['Irrigated', 'Rain-fed']).map((s) => (
+            {WATER_OPTIONS.map((s) => (
               <option key={s} value={s}>
                 {translate(WATER_LABEL_KEYS[s] ?? s)}
               </option>

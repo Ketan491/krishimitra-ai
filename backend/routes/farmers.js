@@ -10,10 +10,19 @@ const { sanitizeName, sanitizeText, isNonNegativeNumber, isValidPassword } = req
 
 const router = express.Router();
 
-function ownFarmerOrAdmin(req, next, farmerId) {
+/**
+ * Resolve the farmer id the caller is allowed to act on, or reject the request.
+ *
+ * This throws rather than calling next() itself. Returning next(...) left every
+ * caller free to keep running: they carried on past the 403 into
+ * `db.update('farmers', undefined, patch)` and then tried to send a second
+ * response, which is both a double-send and an unvalidated write. Throwing
+ * unwinds to the handler's catch, which forwards the error exactly once.
+ */
+function ownFarmerOrAdmin(req, farmerId) {
   const id = Number(farmerId);
   if (req.user.role === 'admin' || (req.user.role === 'farmer' && Number(req.user.id) === id)) return id;
-  return next(new AppError(403, 'You can only manage your own profile.'));
+  throw new AppError(403, 'You can only manage your own profile.');
 }
 
 router.get('/:id', (req, res, next) => {
@@ -43,7 +52,7 @@ router.put(
   ]),
   (req, res, next) => {
     try {
-      const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+      const farmerId = ownFarmerOrAdmin(req, req.params.id);
       const patch = {};
       if (req.body.name !== undefined) {
         const cleanName = sanitizeName(req.body.name);
@@ -81,7 +90,7 @@ router.put(
   uploader('avatars', 'photo'),
   (req, res, next) => {
     try {
-      const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+      const farmerId = ownFarmerOrAdmin(req, req.params.id);
       if (!req.file) return next(new AppError(400, 'No image file uploaded'));
       const updated = db.update('farmers', farmerId, { avatarUrl: `/uploads/avatars/${req.file.filename}` });
       res.json(safeUser(updated));
@@ -93,7 +102,7 @@ router.put(
 
 router.get('/:id/dashboard', requireAuth, requireRole('farmer', 'admin'), (req, res, next) => {
   try {
-    const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+    const farmerId = ownFarmerOrAdmin(req, req.params.id);
     const farmer = db.find('farmers', (f) => f.id === farmerId);
     if (!farmer) return next(new AppError(404, 'Farmer not found'));
     res.json(statsService.farmerDashboard(farmer));
@@ -104,7 +113,7 @@ router.get('/:id/dashboard', requireAuth, requireRole('farmer', 'admin'), (req, 
 
 router.get('/:id/crops', requireAuth, requireRole('farmer', 'admin'), (req, res, next) => {
   try {
-    const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+    const farmerId = ownFarmerOrAdmin(req, req.params.id);
     res.json(db.filter('crops', (c) => c.farmerId === farmerId));
   } catch (err) {
     next(err);
@@ -120,7 +129,7 @@ router.post(
   ]),
   (req, res, next) => {
     try {
-      const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+      const farmerId = ownFarmerOrAdmin(req, req.params.id);
       const crop = db.insert('crops', {
         farmerId,
         cropName: sanitizeText(req.body.cropName, 60),
@@ -141,7 +150,7 @@ router.post(
 
 router.put('/:id/crops/:cropId', requireAuth, requireRole('farmer', 'admin'), (req, res, next) => {
   try {
-    const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+    const farmerId = ownFarmerOrAdmin(req, req.params.id);
     const crop = db.find('crops', (c) => c.id === Number(req.params.cropId) && c.farmerId === farmerId);
     if (!crop) return next(new AppError(404, 'Crop not found'));
 
@@ -163,7 +172,7 @@ router.put('/:id/crops/:cropId', requireAuth, requireRole('farmer', 'admin'), (r
 
 router.delete('/:id/crops/:cropId', requireAuth, requireRole('farmer', 'admin'), (req, res, next) => {
   try {
-    const farmerId = ownFarmerOrAdmin(req, next, req.params.id);
+    const farmerId = ownFarmerOrAdmin(req, req.params.id);
     const crop = db.find('crops', (c) => c.id === Number(req.params.cropId) && c.farmerId === farmerId);
     if (!crop) return next(new AppError(404, 'Crop not found'));
     db.remove('crops', crop.id);

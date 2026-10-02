@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
@@ -16,7 +17,11 @@ import type { DiseaseResult, DiagnosisRecord } from '../../lib/types';
 const SEVERITY_VARIANT = { Low: 'green', Medium: 'amber', High: 'red' } as const;
 
 export function DiseaseDiagnosisPage() {
-  const { role } = useAuth();
+  const { role, token } = useAuth();
+  // /api/advisory/diagnose requires authentication, but this page is rendered in
+  // the public layout, so an anonymous visitor used to fill in the whole form
+  // and only discover on submit that the API answered 401.
+  const signedIn = Boolean(token);
   const { translate } = useI18n();
   const [cropName, setCropName] = useState('');
   const [symptoms, setSymptoms] = useState('');
@@ -26,14 +31,20 @@ export function DiseaseDiagnosisPage() {
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { data: history, refetch: refetchHistory } = useAsync<DiagnosisRecord[]>(
+const { data: history, refetch: refetchHistory } = useAsync<DiagnosisRecord[]>(
     () => (role === 'farmer' ? api.myDiagnoses() : Promise.resolve([])),
-
-    [],
+    // `role` is read inside the fetcher, so it belongs in the dependency list.
+    // Without it the query never re-ran after sign-in and the history panel
+    // stayed empty for the rest of the session.
+    [role],
   );
 
   const run = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!signedIn) {
+      setError(translate('disease.loginRequired'));
+      return;
+    }
     if (symptoms.trim().length < 4) {
       setError(translate('disease.symptomsError'));
       return;
@@ -70,6 +81,13 @@ export function DiseaseDiagnosisPage() {
             title={translate('disease.describeProblem')}
             subtitle={translate('disease.describeProblemHint')}
           />
+          {!signedIn && (
+            <div className="mb-4 rounded-lg border border-crop-200 bg-crop-50 px-4 py-3 text-sm text-crop-900">
+              <Link to="/login" className="font-semibold text-crop-700 hover:underline">
+                {translate('disease.loginRequired')}
+              </Link>
+            </div>
+          )}
           <form onSubmit={run} className="space-y-4">
             <Input
               label={translate('disease.cropName')}

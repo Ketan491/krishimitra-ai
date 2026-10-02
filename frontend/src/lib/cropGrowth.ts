@@ -884,14 +884,59 @@ export function getAllCropProfiles(): CropProfile[] {
   return COMMON_CROP_PROFILES;
 }
 
+const MS_PER_DAY = 86400000;
+
+/**
+ * Parse a 'YYYY-MM-DD' string as a *local* calendar date.
+ *
+ * `new Date('2026-08-23')` is specified to mean UTC midnight, which in any
+ * timezone behind UTC lands on the previous local day. Since every date in this
+ * module is a plain calendar day (a farmer does not sow at an instant), the
+ * string has to be read in local time or the whole calculation shifts by a day.
+ */
+function parseDateOnly(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (match) {
+    const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const fallback = new Date(value);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+/** Format from local calendar parts. toISOString() would shift the day by timezone. */
+function toDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function startOfDay(date: Date): Date {
+  const copy = new Date(date.getTime());
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+/** Calendar-day arithmetic, so a DST change cannot shorten or lengthen a day. */
+function addDays(date: Date, days: number): Date {
+  const copy = startOfDay(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+/** Whole calendar days from `from` to `to`, ignoring time of day. */
+function daysBetween(from: Date, to: Date): number {
+  return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / MS_PER_DAY);
+}
+
 export function estimateHarvestDate(sowingDateISO: string, cropName: string): string {
   const profile = getCropGrowthProfile(cropName);
-  const sowDate = new Date(sowingDateISO);
-  if (isNaN(sowDate.getTime())) {
-    return new Date(Date.now() + profile.durationDays * 86400000).toISOString().slice(0, 10);
+  const sowDate = parseDateOnly(sowingDateISO);
+  if (!sowDate) {
+    return toDateOnly(addDays(new Date(), profile.durationDays));
   }
-  const harvestDate = new Date(sowDate.getTime() + profile.durationDays * 86400000);
-  return harvestDate.toISOString().slice(0, 10);
+  return toDateOnly(addDays(sowDate, profile.durationDays));
 }
 
 function formatDateDisplay(d: Date): string {
@@ -905,34 +950,32 @@ export function calculateCropProgress(
   status = 'Growing',
 ): CropProgressResult {
   const profile = getCropGrowthProfile(cropName);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  const now = startOfDay(new Date());
 
-  let sowingDate = sowingDateStr ? new Date(sowingDateStr) : new Date(now.getTime() - 20 * 86400000);
-  if (isNaN(sowingDate.getTime())) {
-    sowingDate = new Date(now.getTime() - 20 * 86400000);
+  let sowingDate = sowingDateStr ? parseDateOnly(sowingDateStr) : addDays(now, -20);
+  if (!sowingDate) {
+    sowingDate = addDays(now, -20);
   }
-  sowingDate.setHours(0, 0, 0, 0);
+  sowingDate = startOfDay(sowingDate);
 
   // Total days calculation
   let totalDays = profile.durationDays;
   let estimatedHarvestDate: Date;
 
   if (harvestDateStr) {
-    const customHarvest = new Date(harvestDateStr);
-    if (!isNaN(customHarvest.getTime()) && customHarvest.getTime() > sowingDate.getTime()) {
-      estimatedHarvestDate = customHarvest;
-      estimatedHarvestDate.setHours(0, 0, 0, 0);
-      totalDays = Math.max(1, Math.round((estimatedHarvestDate.getTime() - sowingDate.getTime()) / 86400000));
+    const customHarvest = parseDateOnly(harvestDateStr);
+    if (customHarvest && startOfDay(customHarvest).getTime() > sowingDate.getTime()) {
+      estimatedHarvestDate = startOfDay(customHarvest);
+      totalDays = Math.max(1, daysBetween(sowingDate, estimatedHarvestDate));
     } else {
-      estimatedHarvestDate = new Date(sowingDate.getTime() + profile.durationDays * 86400000);
+      estimatedHarvestDate = addDays(sowingDate, profile.durationDays);
     }
   } else {
-    estimatedHarvestDate = new Date(sowingDate.getTime() + profile.durationDays * 86400000);
+    estimatedHarvestDate = addDays(sowingDate, profile.durationDays);
   }
 
-  const daysElapsed = Math.max(0, Math.round((now.getTime() - sowingDate.getTime()) / 86400000));
-  const daysRemaining = Math.max(0, Math.round((estimatedHarvestDate.getTime() - now.getTime()) / 86400000));
+  const daysElapsed = Math.max(0, daysBetween(sowingDate, now));
+  const daysRemaining = Math.max(0, daysBetween(now, estimatedHarvestDate));
 
   let percent = Math.min(100, Math.max(0, Math.round((daysElapsed / totalDays) * 100)));
   const isHarvested = status.toLowerCase() === 'harvested';
@@ -985,7 +1028,7 @@ export function calculateCropProgress(
     percent,
     sowingDateFormatted: formatDateDisplay(sowingDate),
     estimatedHarvestDateFormatted: formatDateDisplay(estimatedHarvestDate),
-    estimatedHarvestDateISO: estimatedHarvestDate.toISOString().slice(0, 10),
+    estimatedHarvestDateISO: toDateOnly(estimatedHarvestDate),
     currentStageIndex,
     currentStage,
     stagesWithTimeline,
