@@ -9,6 +9,7 @@ export interface CartContextValue {
   lines: CartLine[];
   refresh: () => void;
   setLineQuantity: (productId: number, quantity: number) => void;
+  addLineQuantity: (productId: number, quantity: number, maxQuantity?: number) => void;
   removeProduct: (productId: number) => void;
   clearCart: () => void;
   syncFromServer: (products: Product[]) => void;
@@ -36,6 +37,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (quantity > 0 && !next.some((l) => l.productId === productId)) {
         next = [...next, { productId, quantity }];
       }
+      writeCart(next);
+      return { count: next.reduce((s, l) => s + l.quantity, 0), lines: next };
+    });
+  }, []);
+
+  // "Add to cart" is additive: tapping it again on a product already in the
+  // cart should increase that line, not silently reset it back to the
+  // quantity picked on the product page. Capped at the stock the caller knows
+  // about so a line can never exceed what the farmer has available.
+  const addLineQuantity = useCallback((productId: number, quantity: number, maxQuantity?: number) => {
+    setState((prev) => {
+      if (quantity <= 0) return prev;
+      const existing = prev.lines.find((l) => l.productId === productId);
+      const wanted = (existing ? existing.quantity : 0) + quantity;
+      const capped = maxQuantity && maxQuantity > 0 ? Math.min(maxQuantity, wanted) : wanted;
+      const nextQty = Math.max(1, capped);
+      const next = existing
+        ? prev.lines.map((l) => (l.productId === productId ? { ...l, quantity: nextQty } : l))
+        : [...prev.lines, { productId, quantity: nextQty }];
       writeCart(next);
       return { count: next.reduce((s, l) => s + l.quantity, 0), lines: next };
     });
@@ -70,11 +90,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines: state.lines,
       refresh,
       setLineQuantity,
+      addLineQuantity,
       removeProduct,
       clearCart,
       syncFromServer,
     }),
-    [state, refresh, setLineQuantity, removeProduct, clearCart, syncFromServer],
+    [state, refresh, setLineQuantity, addLineQuantity, removeProduct, clearCart, syncFromServer],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -42,10 +42,20 @@ app.set('trust proxy', 1);
 // With the defaults (script-src 'self', default-src 'self') the script is
 // blocked outright, the browser fires its error event, and the customer sees
 // "Could not load the payment window" with nothing left to debug. Only these
-// three directives are widened - everything else stays on helmet's strict
+// directives are widened - everything else stays on helmet's strict
 // defaults, and no 'unsafe-inline' is added to script-src.
 const RAZORPAY_SCRIPT_ORIGIN = 'https://checkout.razorpay.com';
 const RAZORPAY_API_ORIGIN = 'https://api.razorpay.com';
+// checkout.js is not the only script involved. Verified in a real browser
+// against the live site: with only checkout.razorpay.com allowed, the console
+// reported a CSP refusal for cdn.razorpay.com's risk-detection bundle, and
+// the modal's own asset host was then requested as
+// checkout-static-next.razorpay.com/build/undefined and failed ORB. Allowing
+// both origins clears those errors and the modal bundle resolves to real
+// hashed files. Both are named explicitly - no wildcard, and script-src still
+// gets no 'unsafe-inline'.
+const RAZORPAY_CDN_ORIGIN = 'https://cdn.razorpay.com';
+const RAZORPAY_STATIC_ORIGIN = 'https://checkout-static-next.razorpay.com';
 
 app.use(
   helmet({
@@ -57,13 +67,28 @@ app.use(
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        scriptSrc: ["'self'", RAZORPAY_SCRIPT_ORIGIN],
+        scriptSrc: [
+          "'self'",
+          RAZORPAY_SCRIPT_ORIGIN,
+          RAZORPAY_CDN_ORIGIN,
+          RAZORPAY_STATIC_ORIGIN,
+        ],
         // The modal is a Razorpay-hosted iframe, so frame-src must allow it.
         frameSrc: ["'self'", RAZORPAY_API_ORIGIN, RAZORPAY_SCRIPT_ORIGIN],
-        // checkout.js talks to the Razorpay API directly from the browser.
-        connectSrc: ["'self'", RAZORPAY_API_ORIGIN],
+        // checkout.js talks to the Razorpay API directly from the browser,
+        // and fetches its own bundles from the CDN/static origins.
+        connectSrc: [
+          "'self'",
+          RAZORPAY_API_ORIGIN,
+          RAZORPAY_CDN_ORIGIN,
+          RAZORPAY_STATIC_ORIGIN,
+        ],
         // Payment method logos (UPI, cards, net banking) come from Razorpay.
         imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],
+        // The modal ships its own stylesheet from the CDN. helmet's default
+        // style-src already carried 'unsafe-inline', so keeping it here is not
+        // a loosening - it is narrower than the default, which allowed https:.
+        styleSrc: ["'self'", "'unsafe-inline'", RAZORPAY_CDN_ORIGIN, RAZORPAY_STATIC_ORIGIN],
         // frame-src above lets us embed Razorpay's iframe. frame-ancestors is the
         // opposite direction - it stops other sites framing *us*, which is the
         // clickjacking defence. Disabling it gained Razorpay nothing.

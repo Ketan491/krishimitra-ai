@@ -18,6 +18,10 @@ const app = require('../app');
 
 const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com';
 const RAZORPAY_API = 'https://api.razorpay.com';
+// checkout.js fetches these two at runtime. Blocking them leaves the
+// api.razorpay.com modal iframe completely blank.
+const RAZORPAY_CDN = 'https://cdn.razorpay.com';
+const RAZORPAY_STATIC = 'https://checkout-static-next.razorpay.com';
 
 function cspDirectives(header) {
   const map = new Map();
@@ -69,9 +73,14 @@ test('CSP stays strict everywhere else', () => {
         const res = await fetch(`http://127.0.0.1:${port}/api/payments/config`);
         const d = cspDirectives(res.headers.get('content-security-policy'));
 
-        // "Self" must remain the only script source: no unsafe-inline, no
-        // wildcard, or XSS protection is gone.
-        assert.deepStrictEqual(d.get('script-src'), ["'self'", RAZORPAY_SCRIPT]);
+        // "Self" plus the Razorpay origins checkout.js needs, and nothing
+        // else: no unsafe-inline, no wildcard, or XSS protection is gone.
+        assert.deepStrictEqual(d.get('script-src'), [
+          "'self'",
+          RAZORPAY_SCRIPT,
+          RAZORPAY_CDN,
+          RAZORPAY_STATIC,
+        ]);
         assert.deepStrictEqual(d.get('default-src'), ["'self'"]);
         assert.deepStrictEqual(d.get('object-src'), ["'none'"]);
         assert.ok(!d.get('script-src').includes("'unsafe-inline'"));

@@ -19,7 +19,7 @@ import type { Product } from '../../lib/types';
 export function ProductDetailPage() {
   const { id } = useParams();
   const { isLoggedIn, role } = useAuth();
-  const { setLineQuantity } = useCart();
+  const { setLineQuantity, addLineQuantity } = useCart();
   const { successToast, errorToast } = useToast();
   const { translate } = useI18n();
   const navigate = useNavigate();
@@ -64,7 +64,7 @@ export function ProductDetailPage() {
 
   const addToCart = () => {
     if (!requireCustomer()) return;
-    setLineQuantity(product.id, effectiveQty);
+    addLineQuantity(product.id, effectiveQty, maxQty);
     successToast(
       translate('product.addToCartToast')
         .replace('{qty}', String(effectiveQty))
