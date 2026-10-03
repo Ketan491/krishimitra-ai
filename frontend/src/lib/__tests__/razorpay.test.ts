@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RazorpayOptions } from '../razorpay';
+import { shouldFallBackToCod } from '../razorpay';
 import type { PaymentConfig, PaymentOrderResponse } from '../types';
 
 const SCRIPT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -215,5 +216,37 @@ describe('startCheckout', () => {
     const options = captured as unknown as RazorpayOptions;
     options.modal?.ondismiss?.();
     expect(onDismiss).toHaveBeenCalled();
+  });
+});
+
+
+describe('shouldFallBackToCod', () => {
+  const cod = { codEnabled: true, codMaxAmount: 25000 };
+
+  it('switches to COD when online was chosen and COD is available', () => {
+    expect(shouldFallBackToCod('razorpay', cod, 500)).toBe(true);
+  });
+
+  it('treats the cap as inclusive, matching PaymentMethodSelector', () => {
+    expect(shouldFallBackToCod('razorpay', cod, 25000)).toBe(true);
+  });
+
+  it('does not switch when the order is above the COD cap', () => {
+    expect(shouldFallBackToCod('razorpay', cod, 25001)).toBe(false);
+  });
+
+  it('does not switch when the merchant has COD switched off', () => {
+    expect(shouldFallBackToCod('razorpay', { codEnabled: false, codMaxAmount: 25000 }, 500)).toBe(
+      false,
+    );
+  });
+
+  it('does nothing when COD was already the chosen method', () => {
+    expect(shouldFallBackToCod('cod', cod, 500)).toBe(false);
+  });
+
+  it('copes with a missing payment config', () => {
+    expect(shouldFallBackToCod('razorpay', null, 500)).toBe(false);
+    expect(shouldFallBackToCod('razorpay', undefined, 500)).toBe(false);
   });
 });

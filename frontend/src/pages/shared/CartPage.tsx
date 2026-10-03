@@ -8,7 +8,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { formatINR } from '../../lib/format';
 import { cartLinesWithCatalog } from '../../lib/cart';
 import { useCheckout, usePreloadRazorpay, type CheckoutLine } from '../../hooks/useCheckout';
-import { isScriptLoadFailure, loadRazorpayScript, resetRazorpayScript } from '../../lib/razorpay';
+import { isScriptLoadFailure, loadRazorpayScript, resetRazorpayScript, shouldFallBackToCod } from '../../lib/razorpay';
 import { PaymentMethodSelector } from '../../components/checkout/PaymentMethodSelector';
 import { OrderSuccessPanel } from '../../components/checkout/OrderSuccessPanel';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
@@ -161,10 +161,19 @@ export function CartPage() {
       }
       // A script that never loaded is worth retrying in place, and the message
       // now carries the real reason instead of a vague connection hint.
-      if (isScriptLoadFailure(message)) setLoadError(message);
+      if (isScriptLoadFailure(message)) {
+        setLoadError(message);
+        // Razorpay must be loaded from their CDN and cannot be self-hosted, so a
+        // content blocker or network filter is not something the app can code
+        // around. Rather than leave the order stuck with an unpayable "Pay now"
+        // button, switch the selection to Cash on Delivery when that is
+        // genuinely available for this amount. The customer still confirms and
+        // presses the button themselves - no order is placed automatically.
+        if (shouldFallBackToCod(method, paymentConfig, total)) setMethod('cod');
+      }
       errorToast(message || translate('cart.placeOrderError'));
     },
-    [errorToast, translate],
+    [errorToast, translate, method, paymentConfig, total],
   );
 
   const { busy, activeLine, checkout } = useCheckout({

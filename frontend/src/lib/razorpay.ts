@@ -1,6 +1,26 @@
-import type { PaymentConfig, PaymentOrderResponse } from './types';
+import type { PaymentConfig, PaymentMethod, PaymentOrderResponse } from './types';
 
 const SCRIPT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
+
+/**
+ * Razorpay requires checkout.js to be loaded from their CDN and explicitly
+ * forbids self-hosting it, so when a content blocker or network filter refuses
+ * the request there is nothing the app can do to make online payment work on
+ * that device. COD is the only way to keep the order placeable.
+ *
+ * Returns true only when online was the chosen method and COD is genuinely
+ * available for this amount. The caller still has the customer press the pay
+ * button, so no order is ever placed automatically.
+ */
+export function shouldFallBackToCod(
+  method: PaymentMethod,
+  config: Pick<PaymentConfig, 'codEnabled' | 'codMaxAmount'> | null | undefined,
+  total: number,
+): boolean {
+  if (method !== 'razorpay') return false;
+  if (!config?.codEnabled) return false;
+  return total <= (config.codMaxAmount ?? 0);
+}
 
 declare global {
   interface Window {
