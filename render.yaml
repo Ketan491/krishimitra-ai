@@ -30,24 +30,34 @@ services:
       - key: GEMINI_API_KEY
         sync: false
     region: oregon
-    # Two separate problems made the Linux build fail, and both are addressed
-    # here.
+    # Deployment sequence: clean install -> npm ci -> build -> start.
     #
-    # 1. `npm ci` replays a lockfile, and a lockfile written on one platform
-    #    cannot express another's native binaries. Ours carried 1 of the 20
-    #    @typescript/typescript-* variants and none of the esbuild/rollup ones,
-    #    so the build died with "Unable to resolve
-    #    @typescript/typescript-linux-x64". `npm install` re-resolves
-    #    optionalDependencies against the platform it is running on, so the
-    #    Linux binaries actually get fetched.
+    # Why `npm ci` and not `npm install`:
+    #  - npm ci removes node_modules itself before installing. That matters here
+    #    because Render restores a cached dependency tree between builds. A tree
+    #    left over from the old npm-workspaces layout is the most likely source
+    #    of "Cannot read properties of null (reading 'edgesOut')": npm's tree
+    #    builder dereferenced a workspace package that the new package.json no
+    #    longer declared. Starting from an empty directory removes that state.
+    #  - It installs exactly what the committed package-lock.json files pin.
     #
-    # 2. A single `npm install` at the repo root walked the npm workspaces tree
-    #    and crashed npm itself: "Cannot read properties of null (reading
-    #    'edgesOut')". Workspaces are gone from package.json now, so backend and
-    #    frontend install independently.
+    # Why the explicit `rm -rf`: npm ci already does this, so it is
+    # belt-and-braces. It costs nothing and removes any doubt about a restored
+    # cache directory.
     #
-    # Paths are relative to rootDir (backend), hence the ../ prefixes.
-    buildCommand: npm install --prefix ../backend && npm install --prefix ../frontend && npm run build --prefix ../frontend
+    # Why `npm cache clean --force`: Render keeps the npm cache under
+    # /opt/render/.cache, which is also where the failing build wrote its debug
+    # log. Clearing it once per build rules out corrupted cache metadata. This
+    # is the one line that can be dropped once builds are stable.
+    #
+    # Why no `--prefix`: it makes npm resolve the project root from a different
+    # base directory, which is a less-trodden path through arborist. Plain `cd`
+    # keeps each install unambiguous.
+    #
+    # Paths are relative to rootDir (backend). The frontend bundle is written to
+    # frontend/dist and served as static files by backend/app.js, so the service
+    # still starts with `node server.js` from the backend directory.
+    buildCommand: rm -rf node_modules ../frontend/node_modules && npm cache clean --force && npm ci && cd ../frontend && npm ci && npm run build
     startCommand: node server.js
     healthCheckPath: /api/health
     autoDeployTrigger: commit

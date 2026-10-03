@@ -13,7 +13,13 @@ frontend/src/lib/i18n-scratch-*.json
 # backend/data.unit-<pid>.json and these were being committed by accident.
 backend/data.unit-*.json
 
-# Lockfiles are intentionally not committed: they were authored on Windows and
-# pinned native binaries (@typescript/typescript-win32-x64, etc.) that do not
-# exist on Render's Linux builder. Install resolves per platform instead.
-package-lock.json
+# Bun lockfiles are gone: this project installs and builds with npm only.
+# Keeping them around makes Render provision Bun and diverge from the documented
+# npm sequence.
+bun.lock
+bun.lockb
+
+# package-lock.json IS committed, for both backend and frontend, so that Render
+# can use `npm ci` for a reproducible install. (Verified: npm records the
+# optional native bindings for every platform in the lockfile, so a lockfile
+# written on Windows still installs the Linux binaries correctly.)
