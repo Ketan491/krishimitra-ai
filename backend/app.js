@@ -56,6 +56,8 @@ const RAZORPAY_API_ORIGIN = 'https://api.razorpay.com';
 // gets no 'unsafe-inline'.
 const RAZORPAY_CDN_ORIGIN = 'https://cdn.razorpay.com';
 const RAZORPAY_STATIC_ORIGIN = 'https://checkout-static-next.razorpay.com';
+// Razorpay's checkout reports load/risk telemetry to its own logging service.
+const RAZORPAY_TELEMETRY_ORIGIN = 'https://lumberjack.razorpay.com';
 
 app.use(
   helmet({
@@ -82,6 +84,11 @@ app.use(
           RAZORPAY_API_ORIGIN,
           RAZORPAY_CDN_ORIGIN,
           RAZORPAY_STATIC_ORIGIN,
+          // Razorpay's checkout posts delivery/error telemetry to
+          // lumberjack.razorpay.com from the browser. Blocking it does not
+          // break the payment, but it produced real connect-src violations in
+          // the console, so the origin is named explicitly.
+          RAZORPAY_TELEMETRY_ORIGIN,
         ],
         // Payment method logos (UPI, cards, net banking) come from Razorpay.
         imgSrc: ["'self'", 'data:', 'https://*.razorpay.com'],

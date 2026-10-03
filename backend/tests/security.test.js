@@ -50,6 +50,10 @@ test('CSP directive set is correct', () => {
         assert.ok(d.get('frame-src').includes(RAZORPAY_SCRIPT), 'checkout frame must be frame-src allowed');
         assert.ok(d.get('connect-src').includes(RAZORPAY_API), 'browser calls to Razorpay must be allowed');
         assert.ok(
+          d.get('connect-src').some((v) => v.includes('lumberjack.razorpay.com')),
+          "Razorpay's telemetry endpoint must be connect-src allowed or the console fills with violations",
+        );
+        assert.ok(
           d.get('img-src').some((v) => v.includes('razorpay.com')),
           'payment method logos must be img-src allowed',
         );
